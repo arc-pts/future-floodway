@@ -53,10 +53,10 @@ def WSEChunks(WSE_raster, interval=2):
     # # Delete Intermediate Data
     arcpy.Delete_management(WSE_chunks)
 
-    # Add to map
-    arcpy.AddMessage("Adding to Map")
-    m = arcpy.mp.ArcGISProject("CURRENT").listMaps('*')[0]
-    m.addDataFromPath(arcpy.Describe(WSE_chunks_eliminate).catalogPath)
+    # # Add to map
+    # arcpy.AddMessage("Adding to Map")
+    # m = arcpy.mp.ArcGISProject("CURRENT").listMaps('*')[0]
+    # m.addDataFromPath(arcpy.Describe(WSE_chunks_eliminate).catalogPath)
 
     return WSE_chunks_eliminate
 
