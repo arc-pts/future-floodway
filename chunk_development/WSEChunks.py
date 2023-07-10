@@ -71,7 +71,7 @@ def WSEChunks(WSE_raster, interval, output_folder):
   arcpy.Delete_management(WSE_chunks)
 
   arcpy.AddMessage("Output saved to {0}".format(WSE_chunks_eliminate))
-  return WSE_chunks_eliminate
+  return arcpy.Describe(WSE_chunks_eliminate).catalogPath
 
 
 def addToMap(layer):
