@@ -16,6 +16,8 @@ def zscore_per_cell(
     output_raster: PathLike,
     consider_nodata: bool = False
 ) -> PathLike:
+    if ".tif" in multiband_raster: multiband_raster=multiband_raster.replace(".tif", ".TIF")
+    if ".tif" in output_raster: output_raster=output_raster.replace(".tif", ".TIF")
     # Open the multiband raster dataset
     dataset = gdal.Open(multiband_raster, gdal.GA_ReadOnly)
     if dataset is None:
@@ -34,13 +36,11 @@ def zscore_per_cell(
     for band_index in range(num_bands):
         band = dataset.GetRasterBand(band_index + 1)
         raster_values[band_index, :, :] = band.ReadAsArray()
-    
-    # Set cells with nodata_value to NaN
-    nodata_value = band.GetNoDataValue()
-    if consider_nodata:
-        raster_values[raster_values == nodata_value] = 0
-    else:
-        raster_values[raster_values == nodata_value] = np.nan
+        nodata_value = band.GetNoDataValue()
+        if consider_nodata:
+            raster_values[raster_values == nodata_value] = 0
+        else:
+            raster_values[raster_values == nodata_value] = np.nan
 
     # Calculate the mean and standard deviation for each cell across all bands
     mean = np.nanmean(raster_values, axis = 0)

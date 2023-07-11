@@ -2,8 +2,10 @@
 Script to create polygon chunks based on WSE intervals
 Inputs: 
   Single-band WSE raster (Horizontal render)
-  Interval (1ft, 2ft, etc). Good up to 2 decimal places
+  scoped_stream_network - streams used to assign chunking extents
   Output folder - Optional. Will save in WSE raster directory if not provided
+  out_name - name of output chunk dataset
+  Interval (1ft, 2ft, etc). Good up to 2 decimal places
 
   Potential future input? - Scoped streamlines: Used to clip out polygons
 
@@ -12,10 +14,16 @@ Output:
 """
 import arcpy
 import math
-from os import PathLike
+from os import PathLike, path
 
 
-def WSEChunks(WSE_raster: PathLike, interval: int, output_folder: PathLike) -> PathLike:
+def WSEChunks(
+  WSE_raster: PathLike, 
+  scoped_stream_network: PathLike,
+  output_folder: PathLike, 
+  out_name: str, 
+  interval: int = 2
+) -> PathLike:
   # Environment Settings
   desc = arcpy.Describe(WSE_raster)
   spatialReference = desc.spatialReference
@@ -54,8 +62,8 @@ def WSEChunks(WSE_raster: PathLike, interval: int, output_folder: PathLike) -> P
 
   # Raster to Polygon and fill in holes
   arcpy.AddMessage("Raster to Polygon")
-  WSE_chunks = arcpy.conversion.RasterToPolygon(WSE_Reclassify, workspace + r"\WSE_chunks.shp")
-  WSE_chunks_eliminate = arcpy.EliminatePolygonPart_management(WSE_chunks, workspace + r"\WSE_chunks_filled.shp", "PERCENT", part_area_percent=90)
+  WSE_chunks = arcpy.conversion.RasterToPolygon(WSE_Reclassify, path.join(workspace, "WSE_chunks.shp"))
+  WSE_chunks_eliminate = arcpy.EliminatePolygonPart_management(WSE_chunks, path.join(workspace, out_name), "PERCENT", part_area_percent=90)
 
   # Add field with WSE range
   arcpy.AddField_management(WSE_chunks_eliminate, "WSE_Low", "FLOAT", field_alias='WSE Lower Bound')
