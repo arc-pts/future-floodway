@@ -53,12 +53,27 @@ def perimeter_to_shapefile(
 
 
 def chunks_to_shape(
-    chunk_dict: dict[int:set[cell]], 
+    chunk_dict: dict[int:set[int]], # {cell_id : {cell_ids}}
+    cell_dict: dict[int:cell], # {cell_id : cell object}
+    face_dict: dict[int:face], # {face_id : face object}
     projection_file: PathLike, 
     out_directory: PathLike, 
     out_name: str = "chunks"
 ) -> PathLike:
-    return PathLike
+    """
+    chunk_dict: {cell_id : {cell_ids}}
+    cell_dict: {cell_id : cell object}
+    face_dict: {face_id : face object}
+    """
+    chunk_polygons = list()
+    for root_cell_id, cell_ids in chunk_dict.items():
+        chunk_face_shps = list()
+        for cell_id in cell_ids:
+            for face_id in cell_dict[cell_id].face_ids:
+                chunk_face_shps.append(arcpy.Polyline(arcpy.Array(arcpy.Point(*pnt) for pnt in face_dict[face_id].coordinates), arcpy.Describe(projection_file).spatialReference))
+        chunk_polygons.append(arcpy.Dissolve_management(arcpy.FeatureToPolygon_management(chunk_face_shps, f"chunk{root_cell_id}"), f"chunk{root_cell_id}_diss"))
+    chunks_shp = arcpy.Merge_management(chunk_polygons, path.join(out_directory, out_name))
+    return arcpy.Describe(chunks_shp).catalogPath
 
 
 def copy_shape(
@@ -66,7 +81,9 @@ def copy_shape(
     out_directory: PathLike, 
     out_name: str = "out_shape"
 ) -> PathLike:
-    return PathLike
+    dest = path.join(out_directory, out_name)
+    arcpy.CopyFeatures_management(source, dest)
+    return dest
 
 
 def cells_to_shape(
@@ -98,7 +115,9 @@ def merge_shapes(
     out_directory: PathLike, 
     out_name: str = "chunks"
 ) -> PathLike:
-    return PathLike
+    out = path.join(out_directory, out_name)
+    arcpy.Merge_management(shapes, out)
+    return out
 
 
 def point_spatial_index(input_points: np.ndarray = None, xy_array: np.ndarray = None):

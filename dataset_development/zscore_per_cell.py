@@ -1,17 +1,23 @@
 from osgeo import gdal
 import numpy as np
+from os import PathLike
 
 # Calculates the z-score per raster cell for a user-defined band in a multi-band raster. Returns 
 #   a single band raster of calculated z-scores.
 # Inputs: 
-#   raster_path - the path to the multi-band raster
-#   raster_band - the band that should have the z-scores calculated for
-#   output_path - the single-band, z-score raster
-#   nodata_value - the value representing missing data, default = -9999
+#   multiband_raster - the path to the multi-band raster
+#   target_raster_band - the band that should have the z-scores calculated for
+#   output_raster - the single-band, z-score raster
+#   consider_nodata - whether to include NoData in stats calcs as zero values, default = False
 
-def zscore_per_cell(raster_path, raster_band, output_path, nodata_value = -9999):
+def zscore_per_cell(
+    multiband_raster: PathLike,
+    target_raster_band: int,
+    output_raster: PathLike,
+    consider_nodata: bool = False
+) -> PathLike:
     # Open the multiband raster dataset
-    dataset = gdal.Open(raster_path, gdal.GA_ReadOnly)
+    dataset = gdal.Open(multiband_raster, gdal.GA_ReadOnly)
     if dataset is None:
         print("Failed to open the raster dataset.")
         return
@@ -30,7 +36,10 @@ def zscore_per_cell(raster_path, raster_band, output_path, nodata_value = -9999)
         raster_values[band_index, :, :] = band.ReadAsArray()
     
     # Set cells with nodata_value to NaN
-    if nodata_value:
+    nodata_value = band.GetNoDataValue()
+    if consider_nodata:
+        raster_values[raster_values == nodata_value] = 0
+    else:
         raster_values[raster_values == nodata_value] = np.nan
 
     # Calculate the mean and standard deviation for each cell across all bands
@@ -42,10 +51,10 @@ def zscore_per_cell(raster_path, raster_band, output_path, nodata_value = -9999)
     
     # Create a new single-band raster dataset for the z-scores
     driver = gdal.GetDriverByName('GTiff')
-    zscore_dataset = driver.Create(output_path, width, height, 1, gdal.GDT_Float32)
+    zscore_dataset = driver.Create(output_raster, width, height, 1, gdal.GDT_Float32)
 
     # Write the z-scores to the single-band raster dataset
-    raster_band_index = raster_band - 1
+    raster_band_index = target_raster_band - 1
     zscore_band = zscore_dataset.GetRasterBand(1)
     zscore_band.WriteArray(zscore_array[raster_band_index, :, :], 0, 0)
 
@@ -57,4 +66,5 @@ def zscore_per_cell(raster_path, raster_band, output_path, nodata_value = -9999)
     dataset = None
     zscore_dataset = None
     
-    print("Z-scores calculated and saved to:", output_path)
+    print("Z-scores calculated and saved to:", output_raster)
+    return output_raster

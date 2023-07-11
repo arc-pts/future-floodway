@@ -12,8 +12,10 @@ Output:
 """
 import arcpy
 import math
+from os import PathLike
 
-def WSEChunks(WSE_raster, interval, output_folder):
+
+def WSEChunks(WSE_raster: PathLike, interval: int, output_folder: PathLike) -> PathLike:
   # Environment Settings
   desc = arcpy.Describe(WSE_raster)
   spatialReference = desc.spatialReference

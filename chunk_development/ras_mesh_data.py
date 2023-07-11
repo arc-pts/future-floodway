@@ -18,12 +18,12 @@ class mesh_area(object):
     def __init__(self, name: str):
         self.name = name
         self.coordinates: np.ndarray[np.ndarray[float]] = None
-        self.faces: dict[int:face] = dict() # [face_id : face object]
-        self.cells: dict[int:cell] = dict() # [cell_id : cell object]
+        self.faces: dict[int:face] = dict() # {face_id : face object}
+        self.cells: dict[int:cell] = dict() # {cell_id : cell object}
         self.trace_sources: list[int] = list() # [cell_ids]
         self.floodplain_cell_ids: set[int] = set() # {cell_ids}
-        self.neighbor_chunks: dict[int:set[cell]] = dict() # {cell_id : {cell_ids}}
-        self.backwater_chunks: dict[int:set[cell]] = dict() # {cell_id : {cell_ids}}
+        self.neighbor_chunks: dict[int:set[int]] = dict() # {cell_id : {cell_ids}}
+        self.backwater_chunks: dict[int:set[int]] = dict() # {cell_id : {cell_ids}}
         self.recursion_depth: int = 0
 
 
@@ -133,11 +133,11 @@ class mesh_area(object):
 
     def trace_neighbor_chunks(self, stream_network_layer: os.PathLike = None) -> None:
         start = datetime.now(); print(f"started tracing neighbor chunks at {start}...")
-        if not self.floodplain_cell_ids:
-            self.trace_floodplains(stream_network_layer)
+        if not self.trace_sources:
+            self.get_trace_sources(stream_network_layer)
         global trace_benchmark; trace_benchmark = dict()
         global chunks; chunks = dict()
-        for cell_id in self.floodplain_cell_ids:
+        for cell_id in self.trace_sources:
             try:
                 global ceiling, floor
                 self._seek_neighbor_range(cell_id)
@@ -196,6 +196,8 @@ class mesh_area(object):
         start = datetime.now(); print(f"creating chunk shapefile at {start}...")
         out_shape = chunks_to_shape(
             self.backwater_chunks,
+            self.cells,
+            self.faces,
             projection_file,
             out_directory,
             out_name
@@ -208,6 +210,8 @@ class mesh_area(object):
         start = datetime.now(); print(f"creating chunk shapefile at {start}...")
         out_shape = chunks_to_shape(
             self.neighbor_chunks,
+            self.cells,
+            self.faces,
             projection_file,
             out_directory,
             out_name
