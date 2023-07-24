@@ -3,17 +3,18 @@ Script to create polygon chunks based on WSE intervals
 Inputs: 
   Single-band WSE raster (Horizontal render)
   Interval (1ft, 2ft, etc). Good up to 2 decimal places
+  Scoped streamlines: Used to clip out polygons
   Output folder - Optional. Will save in WSE raster directory if not provided
-
-  Potential future input? - Scoped streamlines: Used to clip out polygons
 
 Output:
   Polygon shapefile containing interval chunks. Holes filled in (except at polygon boundaries)
 """
 import arcpy
 import math
+from os import PathLike
 
-def WSEChunks(WSE_raster, interval, output_folder):
+
+def WSEChunks(WSE_raster: PathLike, interval: int, streams: PathLike, output_folder: PathLike) -> PathLike:
   # Environment Settings
   desc = arcpy.Describe(WSE_raster)
   spatialReference = desc.spatialReference
@@ -43,8 +44,8 @@ def WSEChunks(WSE_raster, interval, output_folder):
   workingWSE = minWSE
 
   while workingWSE < maxWSE:
-      reclassify_range.append([workingWSE, workingWSE+interval, int(workingWSE*100)])  # Remap*100 since it needs to be an integer and we want at least a few decimal places
-      workingWSE += interval
+    reclassify_range.append([workingWSE, workingWSE+interval, int(workingWSE*100)])  # Remap*100 since it needs to be an integer and we want at least a few decimal places
+    workingWSE += interval
 
   # arcpy.AddMessage(reclassify_range)
   WSE_Reclassify = arcpy.sa.Reclassify(WSE_raster, "Value", arcpy.sa.RemapRange(reclassify_range))
@@ -52,26 +53,34 @@ def WSEChunks(WSE_raster, interval, output_folder):
 
   # Raster to Polygon and fill in holes
   arcpy.AddMessage("Raster to Polygon")
-  WSE_chunks = arcpy.conversion.RasterToPolygon(WSE_Reclassify, workspace + r"\WSE_chunks.shp")
-  WSE_chunks_eliminate = arcpy.EliminatePolygonPart_management(WSE_chunks, workspace + r"\WSE_chunks_filled.shp", "PERCENT", part_area_percent=90)
+  WSE_chunks_toPolygon = arcpy.conversion.RasterToPolygon(WSE_Reclassify, workspace + r"\WSE_chunks_toPolygon.shp")
+  WSE_chunks_eliminate = arcpy.EliminatePolygonPart_management(WSE_chunks_toPolygon, workspace + r"\WSE_chunks_filled.shp", "PERCENT", part_area_percent=90)
 
   # Add field with WSE range
   arcpy.AddField_management(WSE_chunks_eliminate, "WSE_Low", "FLOAT", field_alias='WSE Lower Bound')
   arcpy.AddField_management(WSE_chunks_eliminate, "WSE_High", "FLOAT", field_alias='WSE Upper Bound')
 
   with arcpy.da.UpdateCursor(WSE_chunks_eliminate, ['gridcode','WSE_Low', 'WSE_High']) as cursor:
-      for row in cursor:
-          row[1] = row[0]/100 
-          row[2] = row[0]/100 + interval
-          cursor.updateRow(row)
+    for row in cursor:
+      row[1] = row[0]/100 
+      row[2] = row[0]/100 + interval
+      cursor.updateRow(row)
           
-  # Clip polygons to scoped stream - future feature?
+  # Clip polygons to scoped stream
+  if streams:
+    chunk_lyr = arcpy.MakeFeatureLayer_management(WSE_chunks_eliminate,"chunk_lyr")
+    streams_lyr = arcpy.MakeFeatureLayer_management(streams,"streams_lyr")
+    arcpy.SelectLayerByLocation_management(chunk_lyr, 'INTERSECT', streams_lyr)
+    WSE_chunks_clipped = arcpy.analysis.Clip(chunk_lyr, chunk_lyr, workspace + r"\WSE_chunks.shp")
+  else:
+    arcpy.AddMessage("No streams provided")
 
   # # Delete Intermediate Data
-  arcpy.Delete_management(WSE_chunks)
+  arcpy.Delete_management(WSE_chunks_toPolygon)
+  arcpy.Delete_management(WSE_chunks_eliminate)
 
-  arcpy.AddMessage("Output saved to {0}".format(WSE_chunks_eliminate))
-  return arcpy.Describe(WSE_chunks_eliminate).catalogPath
+  arcpy.AddMessage("Output saved to {0}".format(WSE_chunks_clipped))
+  return arcpy.Describe(WSE_chunks_clipped).catalogPath
 
 
 def addToMap(layer):
@@ -82,9 +91,10 @@ def addToMap(layer):
 
 if __name__ == "__main__":
 
-    WSE_raster = arcpy.GetParameterAsText(0)
-    interval = arcpy.GetParameter(1)
-    output_folder = arcpy.GetParameterAsText(2)
+  WSE_raster = arcpy.GetParameterAsText(0)
+  interval = arcpy.GetParameter(1)
+  streams = arcpy.GetParameter(2)
+  output_folder = arcpy.GetParameterAsText(3)
 
-    wse_chunk_polygon = WSEChunks(WSE_raster, interval, output_folder)
-    addToMap(wse_chunk_polygon)
+  wse_chunk_polygon = WSEChunks(WSE_raster, interval, streams, output_folder)
+  addToMap(wse_chunk_polygon)
