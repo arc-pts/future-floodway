@@ -46,7 +46,7 @@ AC_array = AC_band.ReadAsArray()
 condition = (AC_array >= 0.2) & (AC_array <= 50)
 
 # Define calculation for condition
-calculation = 1.597626 * np.log(AC_array) + 11.172
+calculation = 1.597626 * np.log(AC_array/100) + 11.172
 
 # Apply conditional calculation
 AC_result_array = np.where(condition, calculation, 0)
