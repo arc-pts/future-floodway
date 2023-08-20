@@ -16,53 +16,16 @@ class BadProjectionError(Exception):
     pass
 
 
-# def floodway_from_rasters(DV2_raster: PathLike, stats_raster: PathLike, out_directory: PathLike, out_name: str = "floodway") -> PathLike:
-#     print("deriving floodway dataset...")
-#     out_path = path.join(out_directory, out_name)
-#     floodway = Con(Raster(DV2_raster)>Raster(stats_raster), 1)
-#     floodway.save(out_path)
-#     print("got floodway dataset")
-#     return out_path
-
-
-# def raster_from_stats_zones(
-#     zones: PathLike,
-#     stats_value_field: str,
-#     snap_raster: PathLike, 
-#     out_directory: PathLike = None,
-#     out_name: str = "stats_raster",
-#     interpolated: bool = True
-# ) -> PathLike:
-#     print("creating stats raster...")
-#     cell_size = arcpy.Describe(snap_raster).meanCellWidth
-#     arcpy.env.snapRaster = snap_raster
-#     if not out_directory: out_directory = arcpy.env.workspace
-#     out_rast_path = path.join(out_directory, out_name)
-#     mask = arcpy.Dissolve_management(zones, "mask")
-#     pnts = arcpy.FeatureToPoint_management(zones, "pnts", "INSIDE")
-#     zone_rast = arcpy.PolygonToRaster_conversion(zones, stats_value_field, "zone_rast", priority_field=stats_value_field, cellsize=cell_size)
-#     if interpolated:
-#         try: arcpy.DeleteField_management(pnts, "Z")
-#         except: pass
-#         arcpy.AddSurfaceInformation_3d(pnts, zone_rast, "Z")
-#         tin = arcpy.CreateTin_3d("stats_tin", arcpy.SpatialReference(zones), [[pnts, "Z", "Mass_Points", ""], [mask, "", "Hard_Clip", ""]])
-#         arcpy.TinRaster_3d(tin, out_rast_path, sample_distance= f"CELLSIZE {cell_size}")
-#     else:
-#         arcpy.CopyRaster_management(zone_rast, out_rast_path)
-#     print("got stats raster")
-#     return out_rast_path
-
-
 def faces_to_polylines(face_dict: dict, projection_file: PathLike) -> dict:
     """
     face_dict: {face_id : face object}
     """
     spatial_reference=arcpy.Describe(projection_file).spatialReference
     face_polylines = dict()
-    cnt = 0
-    total = len(face_dict.keys())
+    # cnt = 0
+    # total = len(face_dict.keys())
     for face_id, face_obj in face_dict.items():
-        cnt+=1; print(f"    creating face polyline {cnt} of {total}")
+        # cnt+=1; print(f"    creating face polyline {cnt} of {total}")
         face_polylines[face_id] = arcpy.Polyline(arcpy.Array([arcpy.Point(*pnt) for pnt in face_obj.coordinates]), spatial_reference)
     return face_polylines
 
@@ -70,10 +33,10 @@ def faces_to_polylines(face_dict: dict, projection_file: PathLike) -> dict:
 def cells_to_polygons(cell_dict: dict, projection_file: PathLike) -> dict:
     spatial_reference=arcpy.Describe(projection_file).spatialReference
     cell_polygons = dict()
-    cnt = 0
-    total = len(cell_dict.keys())
+    # cnt = 0
+    # total = len(cell_dict.keys())
     for cell_id, cell_obj in cell_dict.items():
-        cnt+=1; print(f"    creating cell polygon {cnt} of {total}")
+        # cnt+=1; print(f"    creating cell polygon {cnt} of {total}")
         cell_polygons[cell_id] = arcpy.Polygon(arcpy.Array([arcpy.Point(*cp) for cp in cell_obj.cleaned_coordinates]), spatial_reference)
     return cell_polygons
 
@@ -127,11 +90,11 @@ def chunks_to_polygons(
     cell_polygons: {cell_id : cell polygon object}
     """
     chunk_polygons = dict()
-    cnt = 0
-    total = len(chunk_dict.keys())
+    # cnt = 0
+    # total = len(chunk_dict.keys())
     chunk_features = list()
     for chunk_id, cell_ids in chunk_dict.items():
-        cnt+=1; print(f"    creating chunk polygon {cnt} of {total}")
+        # cnt+=1; print(f"    creating chunk polygon {cnt} of {total}")
         chunk_poly = arcpy.Dissolve_management(list(cell_polygons[cell_id] for cell_id in cell_ids), f"memory/chunk_poly_{chunk_id}")
         chunk_features.append(arcpy.Describe(chunk_poly).catalogPath)
         chunk_poly = next(arcpy.da.SearchCursor(chunk_poly, ["shape@"]))[0]
