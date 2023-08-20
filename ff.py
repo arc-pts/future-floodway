@@ -1,4 +1,4 @@
-from os import PathLike
+from os import PathLike, makedirs
 import numpy as np
 import datetime
 from chunk_development.ras_mesh_data import fetch_mesh_data
@@ -13,25 +13,21 @@ from dataset_development.cov_per_cell import cov_per_cell
 def main() -> None:
 
     ras_plan_hdf_file = r"C:\Users\jacob.bates\OneDrive - WSP O365\2d_floodway_testing\future_floodway\testing_inputs\test_hdf_file\lbr1.p04.hdf"
-    # chunk_layer = r"C:\Users\jacob.bates\OneDrive - WSP O365\2d_floodway_testing\future_floodway\testing_outputs\chunks\neighbor_chunks.shp"
     scoped_stream_network = r"C:\Users\jacob.bates\OneDrive - WSP O365\2d_floodway_testing\future_floodway\testing_inputs\streams_layer\streams_scope.shp"
     DV2_raster = r"C:\Users\jacob.bates\OneDrive - WSP O365\2d_floodway_testing\future_floodway\testing_inputs\RAS\100yr\D _ V^2 (Max).Terrain.hydroDEM.tif"
     percentiles = [30,40,50,60,70,80,90]
     out_directory = r"C:\Users\jacob.bates\OneDrive - WSP O365\2d_floodway_testing\future_floodway\testing_outputs\datasets\percentile_DV2_per_chunk"
 
+    intermediate_folder = path.join(out_directory, "_intermediate_data")
+    if not path.exists(intermediate_folder):
+        makedirs(intermediate_folder)
+
     me = fetch_mesh_data(ras_plan_hdf_file)[0]
-    cell_pnts_shp = me.cell_points_to_shapefile(scoped_stream_network, out_directory)
+    cell_pnts_shp = me.cell_points_to_shapefile(scoped_stream_network, intermediate_folder)
     me.trace_floodplains(scoped_stream_network)
-    fp_mask = me.floodplain_cells_to_mask_shape(scoped_stream_network, out_directory)
+    fp_mask = me.floodplain_cells_to_mask_shape(scoped_stream_network, intermediate_folder)
     me.trace_neighbor_chunks(scoped_stream_network)
-    chunk_polys = me.neighbor_chunks_to_polygons(scoped_stream_network)
-
-    # chunks = arcpy.CreateFeatureclass_management(out_directory, "chunks", "polygon", spatial_reference=arcpy.Describe(scoped_stream_network).spatialReference)
-    # with arcpy.da.InsertCursor(chunks, ["shape@"]) as ic:
-    #     for chunk_shape in chunk_polys.values():
-    #         ic.insertRow(chunk_shape)
-
-    # arcpy.CopyFeatures_management(chunk_polys.values(), path.join(out_directory, "chunks"))
+    chunk_polys = me.neighbor_chunks_to_polygons(scoped_stream_network, True, intermediate_folder)
 
     start = datetime.datetime.now(); print(f"started getting raster percentiles for chunks at {start}...")
     rast = arcpy.Raster(DV2_raster)
@@ -41,7 +37,7 @@ def main() -> None:
     for chunk_id, chunk_poly in chunk_polys.items():
         # cnt+=1; print(f"    getting raster percentiles for chunk {cnt} of {total}")
         chunk_rast = ExtractByMask(rast, chunk_poly)
-        chunk_percentile_vals[chunk_id] = np.percentile(chunk_rast.read(), percentiles)
+        chunk_percentile_vals[chunk_id] = np.nanpercentile(chunk_rast.read(), percentiles)
     print(list(chunk_percentile_vals.values())[0])
     print(f"completed raster percentiles for chunks in {datetime.datetime.now() - start}.")
 
@@ -51,7 +47,7 @@ def main() -> None:
     total = len(me.cell_residence_neighbor_chunks.keys())
     for cell_id, chunk_ids in me.cell_residence_neighbor_chunks.items():
         # cnt+=1; print(f"    getting cell percentiles for cell {cnt} of {total}")
-        cell_percentile_vals[cell_id] = np.stack([chunk_percentile_vals[chunk_id] for chunk_id in chunk_ids], axis=1).max(axis=1)
+        cell_percentile_vals[cell_id] = np.mean(np.stack([chunk_percentile_vals[chunk_id] for chunk_id in chunk_ids], axis=1), axis=1)
     print(list(cell_percentile_vals.values())[0])
     print(f"completed cell percentiles in {datetime.datetime.now() - start}.")
 
@@ -59,13 +55,13 @@ def main() -> None:
     p_fields = list(f"per_{p}" for p in percentiles)
     [arcpy.AddField_management(cell_pnts_shp, pf, "FLOAT") for pf in p_fields]
     query = f"cell_id IN ({str(list(me.cell_residence_neighbor_chunks.keys())).strip('[]')})"
-    cell_pnts_shp_cleaned = arcpy.SelectLayerByAttribute_management(cell_pnts_shp, where_clause=query)
-    with arcpy.da.UpdateCursor(cell_pnts_shp_cleaned, ["cell_id"]+p_fields) as uc:
+    tin_pnts = arcpy.SelectLayerByAttribute_management(cell_pnts_shp, where_clause=query)
+    with arcpy.da.UpdateCursor(tin_pnts, ["cell_id"]+p_fields) as uc:
         for row in uc:
             row[1:] = cell_percentile_vals[row[0]]
             uc.updateRow(row)
+    arcpy.CopyFeatures_management(tin_pnts, path.join(intermediate_folder, "tin_pnts"))
     print(f"completed tin points in {datetime.datetime.now() - start}.")
-    arcpy.CopyFeatures_management(cell_pnts_shp_cleaned, path.join(out_directory, "cell_pnts_shp_cleaned"))
 
 
     # """

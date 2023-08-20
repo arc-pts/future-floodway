@@ -118,7 +118,9 @@ def cell_points_to_shape(
 
 def chunks_to_polygons(
     chunk_dict: dict[int:set[int]],
-    cell_polygons: dict[int:arcpy.Polygon]
+    cell_polygons: dict[int:arcpy.Polygon],
+    write_shapefile: bool = False,
+    out_directory: PathLike = None
 ) -> dict:
     """
     chunk_dict: {cell_id : {cell_ids}}
@@ -127,11 +129,15 @@ def chunks_to_polygons(
     chunk_polygons = dict()
     cnt = 0
     total = len(chunk_dict.keys())
+    chunk_features = list()
     for chunk_id, cell_ids in chunk_dict.items():
         cnt+=1; print(f"    creating chunk polygon {cnt} of {total}")
         chunk_poly = arcpy.Dissolve_management(list(cell_polygons[cell_id] for cell_id in cell_ids), f"memory/chunk_poly_{chunk_id}")
+        chunk_features.append(arcpy.Describe(chunk_poly).catalogPath)
         chunk_poly = next(arcpy.da.SearchCursor(chunk_poly, ["shape@"]))[0]
         chunk_polygons[chunk_id] = chunk_poly
+    if write_shapefile and out_directory:
+        arcpy.Merge_management(chunk_features, path.join(out_directory, "chunks"))
     return chunk_polygons # {chunk id : chunk polygon object}
 
 

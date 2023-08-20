@@ -104,6 +104,8 @@ class mesh_area(object):
             try:
                 global ceiling, floor
                 self._seek_neighbor_range(cell_id)
+                ceiling+=0.1
+                floor-=0.1
                 global root_cell_id; root_cell_id = cell_id
                 self._trace_cells_within_range(cell_id)
             except ValueError:
@@ -157,13 +159,13 @@ class mesh_area(object):
         return out_shape
 
 
-    def neighbor_chunks_to_polygons(self, stream_network_layer: os.PathLike = None) -> dict:
+    def neighbor_chunks_to_polygons(self, stream_network_layer: os.PathLike = None, write_shapefile: bool = False, out_directory: PathLike = None) -> dict:
         start = datetime.now(); print(f"creating chunk polygons at {start}...")
         if not self.neighbor_chunks:
             self.trace_neighbor_chunks(stream_network_layer)
         if not self.cell_polygons:
             self.create_cell_polygons(stream_network_layer)
-        self.neighbor_chunk_polygons = chunks_to_polygons(self.neighbor_chunks, self.cell_polygons)
+        self.neighbor_chunk_polygons = chunks_to_polygons(self.neighbor_chunks, self.cell_polygons, write_shapefile, out_directory)
         print(f"chunk polygons complete in {datetime.now() - start}.")
         return self.neighbor_chunk_polygons
 
