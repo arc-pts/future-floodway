@@ -179,7 +179,7 @@ class datasets(object):
             # cnt+=1; print(f"    creating output raster {cnt} of {total}")
             # create stats raster
             stats_rast_path = path.join(intermediate_folder, f"stats_rast_{field_name}.tif")
-            tin = arcpy.CreateTin_3d("stats_tin", arcpy.SpatialReference(scoped_stream_network), [[tin_pnts, field_name, "Mass_Points", ""], [fp_mask, "", "Hard_Clip", ""]])
+            tin = arcpy.CreateTin_3d("stats_tin", arcpy.Describe(scoped_stream_network).spatialReference, [[tin_pnts, field_name, "Mass_Points", ""], [fp_mask, "", "Hard_Clip", ""]])
             stats_rast = arcpy.TinRaster_3d(tin, stats_rast_path, sample_distance= f"CELLSIZE {cell_size}")
             # create out raster
             out_rast_path = path.join(out_directory, f"{field_name}.tif")
