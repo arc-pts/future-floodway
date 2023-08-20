@@ -2,9 +2,9 @@ import h5py
 import numpy as np
 import os
 from datetime import datetime
-from cell import cell
-from face import face
-from spatial_utils import *
+from chunk_development.cell import cell
+from chunk_development.face import face
+from chunk_development.spatial_utils import *
 import sys
 MAX_RECURSION_DEPTH = 1000
 sys.setrecursionlimit(MAX_RECURSION_DEPTH)
@@ -22,8 +22,12 @@ class mesh_area(object):
         self.cells: dict[int:cell] = dict() # {cell_id : cell object}
         self.trace_sources: list[int] = list() # [cell_ids]
         self.floodplain_cell_ids: set[int] = set() # {cell_ids}
-        self.neighbor_chunks: dict[int:set[int]] = dict() # {cell_id : {cell_ids}}
-        self.backwater_chunks: dict[int:set[int]] = dict() # {cell_id : {cell_ids}}
+        self.neighbor_chunks: dict[int:set[int]] = dict() # {root cell_id : {cell_ids}}
+        self.cell_residence_neighbor_chunks: dict[int:set[int]] = dict() # {cell_id : {chunk_ids}}
+        self.backwater_chunks: dict[int:set[int]] = dict() # {root cell_id : {cell_ids}}
+        self.face_polylines: dict = None # {face_id : polyline object}
+        self.cell_polygons: dict = None # {cell_id : polygon object}
+        self.neighbor_chunk_polygons: dict = None # {chunk_id : polygon object}
         self.recursion_depth: int = 0
 
 
@@ -67,6 +71,103 @@ class mesh_area(object):
         print(f"completed tracing floodplains in {datetime.now() - start}.")
 
 
+    def trace_backwater_chunks(self, stream_network_layer: os.PathLike = None) -> None:
+        start = datetime.now(); print(f"started tracing backwater chunks at {start}...")
+        if not self.trace_sources:
+            self.get_trace_sources(stream_network_layer)
+        global trace_benchmark; trace_benchmark = dict()
+        global chunks; chunks = dict()
+        for cell_id in self.trace_sources:
+            try:
+                global ceiling; ceiling = -99.9
+                global ceiling_cell_id; ceiling_cell_id = None
+                global floor; floor = self.cells[cell_id].max_wse
+                global root_cell_id; root_cell_id = cell_id
+                global visited; visited = set()
+                self._seek_backwater_ceiling(cell_id)
+                visited = set()
+                self._trace_cells_within_range(ceiling_cell_id)
+            except RecursionError:
+                print(f"Max recursion depth reached for Cell ID {cell_id} which prevented chunk tracing from that source.")
+        self.backwater_chunks = chunks.copy()
+        print(f"completed tracing backwater chunks in {datetime.now() - start}.")
+
+
+    def trace_neighbor_chunks(self, stream_network_layer: os.PathLike = None) -> None:
+        start = datetime.now(); print(f"started tracing neighbor chunks at {start}...")
+        if not self.trace_sources:
+            self.get_trace_sources(stream_network_layer)
+        global trace_benchmark; trace_benchmark = dict()
+        global chunks; chunks = dict()
+        global cell_residence_chunks; cell_residence_chunks = dict()
+        for cell_id in self.trace_sources:
+            try:
+                global ceiling, floor
+                self._seek_neighbor_range(cell_id)
+                global root_cell_id; root_cell_id = cell_id
+                self._trace_cells_within_range(cell_id)
+            except ValueError:
+                print(f"no neighbors found for Cell ID {cell_id} which prevented chunk tracing from that source.")
+            except RecursionError:
+                print(f"Max recursion depth reached for Cell ID {cell_id} which prevented chunk tracing from that source.")
+        self.neighbor_chunks = chunks.copy()
+        self.cell_residence_neighbor_chunks = cell_residence_chunks.copy()
+        print(f"completed tracing neighbor chunks in {datetime.now() - start}.")
+
+
+    def create_face_polylines(self, projection_file: os.PathLike) -> dict:
+        start = datetime.now(); print(f"creating face polylines at {start}...")
+        self.face_polylines = faces_to_polylines(self.faces, projection_file)
+        print(f"face polylines complete in {datetime.now() - start}.")
+        return self.face_polylines
+
+
+    def create_cell_polygons(self, projection_file: os.PathLike) -> dict:
+        start = datetime.now(); print(f"creating cell polygons at {start}...")
+        self.cell_polygons = cells_to_polygons(self.cells, projection_file)
+        print(f"cell polygons complete in {datetime.now() - start}.")
+        return self.cell_polygons
+
+
+    def floodplain_cells_to_mask_shape(self, stream_network_layer: os.PathLike = None, out_directory: os.PathLike = None, out_name: str = "floodplain_mask") -> os.PathLike:
+        start = datetime.now(); print(f"creating mask polygon at {start}...")
+        if not self.floodplain_cell_ids:
+            self.trace_floodplains(stream_network_layer)
+        if not self.cell_polygons:
+            self.create_cell_polygons(stream_network_layer)
+        mask_shape = cells_to_mask_shape(
+            self.floodplain_cell_ids,
+            self.cell_polygons,
+            out_directory,
+            out_name
+        )
+        print(f"mask polygon complete in {datetime.now() - start}.")
+        return mask_shape
+
+
+    def cell_points_to_shapefile(self, projection_file: os.PathLike, out_directory: os.PathLike, out_name: str = "cell_pnts") -> os.PathLike:
+        start = datetime.now(); print(f"creating cell point shapefile at {start}...")
+        out_shape = cell_points_to_shape(
+            self.cells,
+            projection_file,
+            out_directory,
+            out_name
+        )
+        print(f"cell point shapefile complete in {datetime.now() - start}.")
+        return out_shape
+
+
+    def neighbor_chunks_to_polygons(self, stream_network_layer: os.PathLike = None) -> dict:
+        start = datetime.now(); print(f"creating chunk polygons at {start}...")
+        if not self.neighbor_chunks:
+            self.trace_neighbor_chunks(stream_network_layer)
+        if not self.cell_polygons:
+            self.create_cell_polygons(stream_network_layer)
+        self.neighbor_chunk_polygons = chunks_to_polygons(self.neighbor_chunks, self.cell_polygons)
+        print(f"chunk polygons complete in {datetime.now() - start}.")
+        return self.neighbor_chunk_polygons
+
+
     def _trace_floodplain_cells(self, cell_id: cell, initial_face_id: int = None, backwater_elev: float = None) -> bool:
         trace_benchmark.setdefault(cell_id, -99.9)
         self.recursion_depth += 1
@@ -96,28 +197,6 @@ class mesh_area(object):
         self.recursion_depth -= 1; return False
 
 
-    def trace_backwater_chunks(self, stream_network_layer: os.PathLike = None) -> None:
-        start = datetime.now(); print(f"started tracing backwater chunks at {start}...")
-        if not self.trace_sources:
-            self.get_trace_sources(stream_network_layer)
-        global trace_benchmark; trace_benchmark = dict()
-        global chunks; chunks = dict()
-        for cell_id in self.trace_sources:
-            try:
-                global ceiling; ceiling = -99.9
-                global ceiling_cell_id; ceiling_cell_id = None
-                global floor; floor = self.cells[cell_id].max_wse
-                global root_cell_id; root_cell_id = cell_id
-                global visited; visited = set()
-                self._seek_backwater_ceiling(cell_id)
-                visited = set()
-                self._trace_cells_within_range(ceiling_cell_id)
-            except RecursionError:
-                print(f"Max recursion depth reached for Cell ID {cell_id} which prevented chunk tracing from that source.")
-        self.backwater_chunks = chunks.copy()
-        print(f"completed tracing backwater chunks in {datetime.now() - start}.")
-
-
     def _seek_backwater_ceiling(self, cell_id: cell) -> None:
         cell_object = self.cells[cell_id]
         visited.add(cell_id)
@@ -129,26 +208,6 @@ class mesh_area(object):
             opposite_cell_object = self.cells[cell_object.opposite_cell_ids[face_id]]
             if (not np.isnan(opposite_cell_object.min_elev)) and (opposite_cell_object.id not in visited) and (opposite_cell_object.max_wse >= floor) and (opposite_cell_object.min_elev < floor) and (face_object.min_elev < floor):
                 self._seek_backwater_ceiling(opposite_cell_object.id)
-
-
-    def trace_neighbor_chunks(self, stream_network_layer: os.PathLike = None) -> None:
-        start = datetime.now(); print(f"started tracing neighbor chunks at {start}...")
-        if not self.trace_sources:
-            self.get_trace_sources(stream_network_layer)
-        global trace_benchmark; trace_benchmark = dict()
-        global chunks; chunks = dict()
-        for cell_id in self.trace_sources:
-            try:
-                global ceiling, floor
-                self._seek_neighbor_range(cell_id)
-                global root_cell_id; root_cell_id = cell_id
-                self._trace_cells_within_range(cell_id)
-            except ValueError:
-                print(f"no neighbors found for Cell ID {cell_id} which prevented chunk tracing from that source.")
-            except RecursionError:
-                print(f"Max recursion depth reached for Cell ID {cell_id} which prevented chunk tracing from that source.")
-        self.neighbor_chunks = chunks.copy()
-        print(f"completed tracing neighbor chunks in {datetime.now() - start}.")
 
 
     def _seek_neighbor_range(self, cell_id: cell) -> None:
@@ -168,6 +227,7 @@ class mesh_area(object):
         cell_object = self.cells[cell_id]
         if (not np.isnan(cell_object.min_elev)) and (cell_id not in chunks[root_cell_id]) or (not backwater_elev and trace_benchmark[cell_id] < cell_object.max_wse) or (backwater_elev and trace_benchmark[cell_id] < backwater_elev):
             chunks[root_cell_id].add(cell_id)
+            cell_residence_chunks.setdefault(cell_id, set()).add(root_cell_id)
             trace_benchmark[cell_id] = backwater_elev or cell_object.max_wse
             for face_id in cell_object.face_ids:
                 face_object = self.faces[face_id]
@@ -178,46 +238,6 @@ class mesh_area(object):
                             self._trace_cells_within_range(opposite_cell_object.id, face_object.id)
                         elif (trace_benchmark[cell_id] < opposite_cell_object.max_wse) and (trace_benchmark[cell_id] > opposite_cell_object.min_elev) and (trace_benchmark[cell_id] > face_object.min_elev): # handle backwater cells here
                             self._trace_cells_within_range(opposite_cell_object.id, face_object.id, trace_benchmark[cell_id])
-
-
-    def cells_to_shapefile(self, cell_ids: set[int], projection_file: os.PathLike, out_directory: os.PathLike, out_name: str = "cells") -> os.PathLike:
-        start = datetime.now(); print(f"creating cell shapefile at {start}...")
-        out_shape = cells_to_shape(
-            dict((cell_id, list([self.faces[face_id] for face_id in self.cells[cell_id].face_ids])) for cell_id in cell_ids),
-            projection_file,
-            out_directory,
-            out_name
-        )
-        print(f"cell shapefile complete in {datetime.now() - start}.")
-        return out_shape
-    
-
-    def backwater_chunks_to_shapefile(self, projection_file: os.PathLike, out_directory: os.PathLike, out_name: str = "backwater_chunks") -> os.PathLike:
-        start = datetime.now(); print(f"creating chunk shapefile at {start}...")
-        out_shape = chunks_to_shape(
-            self.backwater_chunks,
-            self.cells,
-            self.faces,
-            projection_file,
-            out_directory,
-            out_name
-        )
-        print(f"chunk shapefile complete in {datetime.now() - start}.")
-        return out_shape
-
-
-    def neighbor_chunks_to_shapefile(self, projection_file: os.PathLike, out_directory: os.PathLike, out_name: str = "neighbor_chunks") -> os.PathLike:
-        start = datetime.now(); print(f"creating chunk shapefile at {start}...")
-        out_shape = chunks_to_shape(
-            self.neighbor_chunks,
-            self.cells,
-            self.faces,
-            projection_file,
-            out_directory,
-            out_name
-        )
-        print(f"chunk shapefile complete in {datetime.now() - start}.")
-        return out_shape
 
 
 def fetch_mesh_data(ras_plan_hdf_file: os.PathLike) -> list[mesh_area]:
@@ -273,6 +293,47 @@ def fetch_mesh_data(ras_plan_hdf_file: os.PathLike) -> list[mesh_area]:
                     cell_obj.opposite_cell_ids[face_id] = face_dict[face_id].opposite_cell_ids[cell_id]
                     cell_obj.connecting_face_ids[face_dict[face_id].opposite_cell_ids[cell_id]] = face_id
                 cell_dict[cell_id] = cell_obj
+
+            # get cell cleaned coordinates
+            face_id = -1
+            starting_row = 0
+            count = 0
+            for item in facepoints_index:
+                face_id += 1
+                face_coords = []
+                face_coords.append(list(facepoints_coordinates[item[0]]))
+                starting_row = faces_perimeter_info[face_id][0]
+                count = faces_perimeter_info[face_id][1]
+                if count > 0:
+                    for row in range(starting_row, starting_row + count):
+                        face_coords.append(list(faces_perimeter_values[row]))
+                face_coords.append(list(facepoints_coordinates[item[1]]) )
+                for cell_id in [int(i) for i in face_cells_index[face_id]]:
+                    cell_obj = cell_dict.setdefault(cell_id, cell(cell_id))
+                    cell_obj.face_coordinates.append(face_coords)
+
+            global cleaned_coords; global raw_coords
+
+            def clean_coords(end_coord: list = None) -> None:
+                if not end_coord:
+                    target = raw_coords.pop(0)
+                else:
+                    i = -1
+                    for face in raw_coords:
+                        i+=1
+                        if end_coord == face[0]:
+                            target = raw_coords.pop(i)
+                        elif end_coord == face[-1]:
+                            target = raw_coords.pop(i)
+                            target.reverse()
+                [cleaned_coords.append(coord) for coord in target]
+                if raw_coords: clean_coords(target[-1])
+
+            for cell_id, cell_obj in cell_dict.items():
+                cleaned_coords = []
+                raw_coords = cell_obj.face_coordinates.copy()
+                clean_coords()
+                cell_dict[cell_id].cleaned_coordinates = cleaned_coords
 
             # get mesh areas
             mesh_obj = mesh_area(name)

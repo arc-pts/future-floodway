@@ -1,9 +1,11 @@
 from os import path, PathLike
 import numpy as np
 from scipy.spatial import KDTree
-from cell import cell
-from face import face
+from chunk_development.cell import cell
+from chunk_development.face import face
 import arcpy
+from arcpy.sa import *
+from arcpy.ia import *
 arcpy.env.overwriteOutput = True
 arcpy.env.addOutputsToMap = 0
 arcpy.env.workspace = arcpy.env.scratchGDB
@@ -12,6 +14,142 @@ scratch_folder = arcpy.env.scratchFolder
 
 class BadProjectionError(Exception):
     pass
+
+
+# def floodway_from_rasters(DV2_raster: PathLike, stats_raster: PathLike, out_directory: PathLike, out_name: str = "floodway") -> PathLike:
+#     print("deriving floodway dataset...")
+#     out_path = path.join(out_directory, out_name)
+#     floodway = Con(Raster(DV2_raster)>Raster(stats_raster), 1)
+#     floodway.save(out_path)
+#     print("got floodway dataset")
+#     return out_path
+
+
+# def raster_from_stats_zones(
+#     zones: PathLike,
+#     stats_value_field: str,
+#     snap_raster: PathLike, 
+#     out_directory: PathLike = None,
+#     out_name: str = "stats_raster",
+#     interpolated: bool = True
+# ) -> PathLike:
+#     print("creating stats raster...")
+#     cell_size = arcpy.Describe(snap_raster).meanCellWidth
+#     arcpy.env.snapRaster = snap_raster
+#     if not out_directory: out_directory = arcpy.env.workspace
+#     out_rast_path = path.join(out_directory, out_name)
+#     mask = arcpy.Dissolve_management(zones, "mask")
+#     pnts = arcpy.FeatureToPoint_management(zones, "pnts", "INSIDE")
+#     zone_rast = arcpy.PolygonToRaster_conversion(zones, stats_value_field, "zone_rast", priority_field=stats_value_field, cellsize=cell_size)
+#     if interpolated:
+#         try: arcpy.DeleteField_management(pnts, "Z")
+#         except: pass
+#         arcpy.AddSurfaceInformation_3d(pnts, zone_rast, "Z")
+#         tin = arcpy.CreateTin_3d("stats_tin", arcpy.SpatialReference(zones), [[pnts, "Z", "Mass_Points", ""], [mask, "", "Hard_Clip", ""]])
+#         arcpy.TinRaster_3d(tin, out_rast_path, sample_distance= f"CELLSIZE {cell_size}")
+#     else:
+#         arcpy.CopyRaster_management(zone_rast, out_rast_path)
+#     print("got stats raster")
+#     return out_rast_path
+
+
+def faces_to_polylines(face_dict: dict, projection_file: PathLike) -> dict:
+    """
+    face_dict: {face_id : face object}
+    """
+    spatial_reference=arcpy.Describe(projection_file).spatialReference
+    face_polylines = dict()
+    cnt = 0
+    total = len(face_dict.keys())
+    for face_id, face_obj in face_dict.items():
+        cnt+=1; print(f"    creating face polyline {cnt} of {total}")
+        face_polylines[face_id] = arcpy.Polyline(arcpy.Array([arcpy.Point(*pnt) for pnt in face_obj.coordinates]), spatial_reference)
+    return face_polylines
+
+
+def cells_to_polygons(cell_dict: dict, projection_file: PathLike) -> dict:
+    spatial_reference=arcpy.Describe(projection_file).spatialReference
+    cell_polygons = dict()
+    cnt = 0
+    total = len(cell_dict.keys())
+    for cell_id, cell_obj in cell_dict.items():
+        cnt+=1; print(f"    creating cell polygon {cnt} of {total}")
+        cell_polygons[cell_id] = arcpy.Polygon(arcpy.Array([arcpy.Point(*cp) for cp in cell_obj.cleaned_coordinates]), spatial_reference)
+    return cell_polygons
+
+
+def cells_to_mask_shape(
+    cell_ids: set,
+    cell_polygons: dict,
+    out_directory: PathLike = None,
+    out_name: str = "mask"
+) -> arcpy.Polygon:
+    """
+    cell_ids: {cell_ids}
+    cell_polygons: {cell_id : cell polygon object}
+    """
+    if not out_directory: out_directory = arcpy.env.workspace
+    mask = arcpy.Dissolve_management(list(cell_polygons[cell_id] for cell_id in cell_ids), path.join(out_directory, out_name))
+    return arcpy.Describe(mask).catalogPath
+
+
+def cell_points_to_shape(
+    cells: dict[int:cell], 
+    projection_file: PathLike, 
+    out_directory: PathLike = None, 
+    out_name: str = "cells_pnts"
+) -> PathLike:
+    """
+    cells: {cell_id : cell object}
+    """
+    if not out_directory: out_directory = arcpy.env.workspace
+    cell_pnts_shp = arcpy.CreateFeatureclass_management(
+        out_directory, 
+        out_name, 
+        "point", 
+        spatial_reference=arcpy.Describe(projection_file).spatialReference
+    )
+    arcpy.AddField_management(cell_pnts_shp, "cell_id", "LONG")
+    with arcpy.da.InsertCursor(cell_pnts_shp, ["SHAPE@", "cell_id"]) as cur:
+        for cell_id, cell_obj in cells.items():
+            cur.insertRow([arcpy.PointGeometry(arcpy.Point(*cell_obj.center_coordinates)), cell_id])
+    return arcpy.Describe(cell_pnts_shp).catalogPath
+
+
+def chunks_to_polygons(
+    chunk_dict: dict[int:set[int]],
+    cell_polygons: dict[int:arcpy.Polygon]
+) -> dict:
+    """
+    chunk_dict: {cell_id : {cell_ids}}
+    cell_polygons: {cell_id : cell polygon object}
+    """
+    chunk_polygons = dict()
+    cnt = 0
+    total = len(chunk_dict.keys())
+    for chunk_id, cell_ids in chunk_dict.items():
+        cnt+=1; print(f"    creating chunk polygon {cnt} of {total}")
+        chunk_poly = arcpy.Dissolve_management(list(cell_polygons[cell_id] for cell_id in cell_ids), f"memory/chunk_poly_{chunk_id}")
+        chunk_poly = next(arcpy.da.SearchCursor(chunk_poly, ["shape@"]))[0]
+        chunk_polygons[chunk_id] = chunk_poly
+    return chunk_polygons # {chunk id : chunk polygon object}
+
+
+def add_burn_id(layer: PathLike, field_name: str = "burn_id") -> None:
+    try: arcpy.DeleteField_management(layer, field_name)
+    except: pass
+    arcpy.AddField_management(layer, field_name, "LONG")
+    arcpy.CalculateField_management(layer, field_name, f"!{arcpy.Describe(layer).oidFieldName}!+1")
+
+
+def copy_shape(
+    source: PathLike, 
+    out_directory: PathLike, 
+    out_name: str = "out_shape"
+) -> PathLike:
+    dest = path.join(out_directory, out_name)
+    arcpy.CopyFeatures_management(source, dest)
+    return dest
 
 
 def check_projection(scoped_stream_network: PathLike) -> None:
@@ -52,63 +190,6 @@ def perimeter_to_shapefile(
     return arcpy.Describe(mesh_perimeter_shp).catalogPath
 
 
-def chunks_to_shape(
-    chunk_dict: dict[int:set[int]], # {cell_id : {cell_ids}}
-    cell_dict: dict[int:cell], # {cell_id : cell object}
-    face_dict: dict[int:face], # {face_id : face object}
-    projection_file: PathLike, 
-    out_directory: PathLike, 
-    out_name: str = "chunks"
-) -> PathLike:
-    """
-    chunk_dict: {cell_id : {cell_ids}}
-    cell_dict: {cell_id : cell object}
-    face_dict: {face_id : face object}
-    """
-    chunk_polygons = list()
-    for root_cell_id, cell_ids in chunk_dict.items():
-        chunk_face_shps = list()
-        for cell_id in cell_ids:
-            for face_id in cell_dict[cell_id].face_ids:
-                chunk_face_shps.append(arcpy.Polyline(arcpy.Array(arcpy.Point(*pnt) for pnt in face_dict[face_id].coordinates), arcpy.Describe(projection_file).spatialReference))
-        chunk_polygons.append(arcpy.Dissolve_management(arcpy.FeatureToPolygon_management(chunk_face_shps, f"chunk{root_cell_id}"), f"chunk{root_cell_id}_diss"))
-    chunks_shp = arcpy.Merge_management(chunk_polygons, path.join(out_directory, out_name))
-    return arcpy.Describe(chunks_shp).catalogPath
-
-
-def copy_shape(
-    source: PathLike, 
-    out_directory: PathLike, 
-    out_name: str = "out_shape"
-) -> PathLike:
-    dest = path.join(out_directory, out_name)
-    arcpy.CopyFeatures_management(source, dest)
-    return dest
-
-
-def cells_to_shape(
-    cell_faces: dict[int:list[face]], 
-    projection_file: PathLike, 
-    out_directory: PathLike = arcpy.env.workspace, 
-    out_name: str = "cells"
-) -> PathLike:
-    """
-    cell_faces: {cell_id : [face objects]}
-    """
-    cell_faces_shp = arcpy.CreateFeatureclass_management(
-        arcpy.env.workspace, 
-        "cell_faces_shp", 
-        "POLYLINE", 
-        spatial_reference=arcpy.Describe(projection_file).spatialReference
-    )
-    with arcpy.da.InsertCursor(cell_faces_shp, ["SHAPE@"]) as cur:
-        for cell_id, faces in cell_faces.items():
-            for face_obj in faces:
-                cur.insertRow([arcpy.Polyline(arcpy.Array([arcpy.Point(*pnt) for pnt in face_obj.coordinates]))])
-    cell_shape = arcpy.FeatureToPolygon_management(cell_faces_shp, path.join(out_directory, out_name))
-    return arcpy.Describe(cell_shape).catalogPath
-
-
 def merge_shapes(
     shapes: list[PathLike], 
     projection_file: PathLike, 
@@ -139,7 +220,3 @@ def scratch_me() -> None:
             except Exception as e: arcpy.AddMessage(f"could not rewrite scratch database: {e}")
         arcpy.CreateFileGDB_management(dir, filename)
     except: pass
-
-
-if __name__ == "__main__":
-    pass

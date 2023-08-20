@@ -7,4 +7,6 @@ class cell(object):
         self.face_ids: set[int] = set()
         self.opposite_cell_ids: dict[int:int] = dict() # {face_id : opposite cell_id}
         self.connecting_face_ids: dict[int:int] = dict() # {opposite cell_id : face_id}
+        self.cleaned_coordinates: list = [] # [[x,y], [x,y], ...]
+        self.face_coordinates: list = [] # [[[x,y], [x,y], ...], [[x,y], [x,y], ...], ...]
         self.chunk_fellows: set[int] = set([cell_id]) # {cell_id, cell_id, ...}
