@@ -2,12 +2,12 @@ from osgeo import gdal
 import numpy as np
 
 # Inputs
-raster_path = 'data/0_source/composite_DxV.tif'
-output_path = 'data/2_output/test/Method_2_Scores.tif'
+raster_path = 'data/0_source/composite_AUS.tif'
+output_path = 'data/2_output/Method_3_Scores.tif'
 
 # FUNCTION: N/A
 #
-# DESCRIPTION: Calculates the 'Method 2' score for a  multi-band raster. An 
+# DESCRIPTION: Calculates the 'Method 3' score for a  multi-band raster. An 
 #   equal weight is applied to each band. Returns a single band raster of 
 #   calculated scores. Any value not in the defined ranges is assigned a 
 #   value of zero.
@@ -36,19 +36,28 @@ for band_index in range(num_bands):
     array = band.ReadAsArray()
 
     # Define conditions (based on score trendline)
-    condition1 = (array > 0) & (array <= 3.2)
-    condition2 = (array > 3.2) & (array <= 43.04)
-    condition3 = array > 43.04
+    condition1 = array == 1
+    condition2 = array == 2
+    condition3 = array == 3
+    condition4 = array == 4
+    condition5 = array == 5
+    condition6 = array == 6
 
     # Define calculations for each condition (based on score trendline)
-    calculation1 = array * 0.7813
-    calculation2 = 2.89249 * np.log(array) - 0.8825
-    calculation3 = 10
+    calculation1 = 1
+    calculation2 = 2
+    calculation3 = 4
+    calculation4 = 6
+    calculation5 = 8
+    calculation6 = 10
 
     # Apply conditional calculations
     result_array = np.where(condition1, calculation1,
                     np.where(condition2, calculation2, 
-                     np.where(condition3, calculation3, 0)))
+                     np.where(condition3, calculation3, 
+                      np.where(condition4, calculation4,
+                       np.where(condition5, calculation5, 
+                        np.where(condition6, calculation6, 0))))))
 
     raster_values[band_index, :, :] = result_array
 
