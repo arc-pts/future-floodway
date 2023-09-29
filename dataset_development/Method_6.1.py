@@ -1,11 +1,15 @@
 from osgeo import gdal
 import numpy as np
 
-AC_grid_path = 'data/0_source/Compass_AC.tif'
-DV_grid_path = 'data/0_source/Compass_DV.tif'
+#AC_grid_path = 'data/0_source/AEP_filtered_half_foot_Resample2.tif'
+#DV_grid_path = 'data/0_source/composite_DxV_half_foot_filter_SetNull.tif'
+AC_grid_path = 'data/0_source/Compass_AC_Southwest.tif'
+DV_grid_path = 'data/0_source/Compass_DV_Southwest.tif'
 #DV_output_path = 'data/1_interim/Method_1_DV.tif'
 #AC_output_path = 'data/1_interim/Method_1_AC.tif'
-output_path = 'data/2_output/Method_6.1_Scores_Compass.tif'
+output_path = 'data/2_output/Method_6.1_Scores_Compass_Southwest.tif'
+#output_path = 'data/2_output/Method_6.1_Scores_Compass2.tif'
+
 
 # FUNCTION: N/A
 #
@@ -69,7 +73,7 @@ if DV_input_dataset is None:
 DV_num_bands = DV_input_dataset.RasterCount
 DV_width = DV_input_dataset.RasterXSize
 DV_height = DV_input_dataset.RasterYSize
-    
+
 # Create an empty array to store the cell values of all bands
 DV_raster_values = np.zeros((DV_num_bands, DV_height, DV_width), dtype=np.float32)
 
@@ -78,7 +82,7 @@ for band_index in range(DV_num_bands):
     DV_array = DV_band.ReadAsArray()
 
     # Define conditions (based on score trendline)
-    DV_condition1 = (DV_array > 0) & (DV_array <= 3.2)
+    DV_condition1 = (DV_array >= 0) & (DV_array <= 3.2)
     DV_condition2 = (DV_array > 3.2) & (DV_array <= 43.04)
     DV_condition3 = DV_array > 43.04
 
