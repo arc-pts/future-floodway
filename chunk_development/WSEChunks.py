@@ -83,7 +83,7 @@ def WSEChunks(
     arcpy.AddMessage("No streams provided")
 
   # # Delete Intermediate Data
-  arcpy.Delete_management(WSE_chunks_toPolygon)
+  arcpy.Delete_management(WSE_chunks)
   arcpy.Delete_management(WSE_chunks_eliminate)
 
   arcpy.AddMessage("Output saved to {0}".format(WSE_chunks_clipped))
