@@ -7,8 +7,6 @@ Inputs:
   out_name - name of output chunk dataset
   Interval (1ft, 2ft, etc). Good up to 2 decimal places
 
-  Potential future input? - Scoped streamlines: Used to clip out polygons
-
 Output:
   Polygon shapefile containing interval chunks. Holes filled in (except at polygon boundaries)
 """
@@ -53,8 +51,8 @@ def WSEChunks(
   workingWSE = minWSE
 
   while workingWSE < maxWSE:
-      reclassify_range.append([workingWSE, workingWSE+interval, int(workingWSE*100)])  # Remap*100 since it needs to be an integer and we want at least a few decimal places
-      workingWSE += interval
+    reclassify_range.append([workingWSE, workingWSE+interval, int(workingWSE*100)])  # Remap*100 since it needs to be an integer and we want at least a few decimal places
+    workingWSE += interval
 
   # arcpy.AddMessage(reclassify_range)
   WSE_Reclassify = arcpy.sa.Reclassify(WSE_raster, "Value", arcpy.sa.RemapRange(reclassify_range))
@@ -70,18 +68,26 @@ def WSEChunks(
   arcpy.AddField_management(WSE_chunks_eliminate, "WSE_High", "FLOAT", field_alias='WSE Upper Bound')
 
   with arcpy.da.UpdateCursor(WSE_chunks_eliminate, ['gridcode','WSE_Low', 'WSE_High']) as cursor:
-      for row in cursor:
-          row[1] = row[0]/100 
-          row[2] = row[0]/100 + interval
-          cursor.updateRow(row)
+    for row in cursor:
+      row[1] = row[0]/100 
+      row[2] = row[0]/100 + interval
+      cursor.updateRow(row)
           
-  # Clip polygons to scoped stream - future feature?
+  # Clip polygons to scoped stream
+  if streams:
+    chunk_lyr = arcpy.MakeFeatureLayer_management(WSE_chunks_eliminate,"chunk_lyr")
+    streams_lyr = arcpy.MakeFeatureLayer_management(streams,"streams_lyr")
+    arcpy.SelectLayerByLocation_management(chunk_lyr, 'INTERSECT', streams_lyr)
+    WSE_chunks_clipped = arcpy.analysis.Clip(chunk_lyr, chunk_lyr, workspace + r"\WSE_chunks.shp")
+  else:
+    arcpy.AddMessage("No streams provided")
 
   # # Delete Intermediate Data
-  arcpy.Delete_management(WSE_chunks)
+  arcpy.Delete_management(WSE_chunks_toPolygon)
+  arcpy.Delete_management(WSE_chunks_eliminate)
 
-  arcpy.AddMessage("Output saved to {0}".format(WSE_chunks_eliminate))
-  return arcpy.Describe(WSE_chunks_eliminate).catalogPath
+  arcpy.AddMessage("Output saved to {0}".format(WSE_chunks_clipped))
+  return arcpy.Describe(WSE_chunks_clipped).catalogPath
 
 
 def addToMap(layer):
@@ -92,9 +98,10 @@ def addToMap(layer):
 
 if __name__ == "__main__":
 
-    WSE_raster = arcpy.GetParameterAsText(0)
-    interval = arcpy.GetParameter(1)
-    output_folder = arcpy.GetParameterAsText(2)
+  WSE_raster = arcpy.GetParameterAsText(0)
+  interval = arcpy.GetParameter(1)
+  streams = arcpy.GetParameter(2)
+  output_folder = arcpy.GetParameterAsText(3)
 
-    wse_chunk_polygon = WSEChunks(WSE_raster, interval, output_folder)
-    addToMap(wse_chunk_polygon)
+  wse_chunk_polygon = WSEChunks(WSE_raster, interval, streams, output_folder)
+  addToMap(wse_chunk_polygon)
