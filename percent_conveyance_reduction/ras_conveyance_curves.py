@@ -56,13 +56,33 @@ def evaluate_conveyance_reduction(
     with RasGeomHdf(initial_geom_hdf) as ghdf1, RasGeomHdf(updated_geom_hdf) as ghdf2:
         mesh_faces = ghdf1.mesh_cell_faces()
         assert mesh_faces.to_json() == ghdf2.mesh_cell_faces().to_json()
-    df1 = get_conveyance_and_mannings_curves(initial_geom_hdf)
-    df2 = get_conveyance_and_mannings_curves(updated_geom_hdf)
+    d1 = get_conveyance_and_mannings_curves(initial_geom_hdf)
+    d2 = get_conveyance_and_mannings_curves(updated_geom_hdf)
+    mesh_faces["med_elev"] = mesh_faces.apply(
+        lambda row: round(
+            np.mean(
+                [
+                    np.median(d2[row["mesh_name"]][row["face_id"]]["elevation"]),
+                    np.median(d1[row["mesh_name"]][row["face_id"]]["elevation"])
+                ]
+            ),
+            2
+        ),
+        axis = 1
+    )
     mesh_faces["delta_q_perc"] = mesh_faces.apply(
         lambda row: round(
             (
-                np.median(df2[row["mesh_name"]][row["face_id"]]["conveyance"]) /
-                np.median(df1[row["mesh_name"]][row["face_id"]]["conveyance"])
+                np.interp(
+                    x=row["med_elev"],
+                    xp=d2[row["mesh_name"]][row["face_id"]]["elevation"],
+                    fp=d2[row["mesh_name"]][row["face_id"]]["conveyance"]
+                ) /
+                np.interp(
+                    x=row["med_elev"],
+                    xp=d1[row["mesh_name"]][row["face_id"]]["elevation"],
+                    fp=d1[row["mesh_name"]][row["face_id"]]["conveyance"]
+                )
             ) - 1,
             2
         ) * 100,
@@ -71,8 +91,8 @@ def evaluate_conveyance_reduction(
     mesh_faces["delta_n_perc"] = mesh_faces.apply(
         lambda row: round(
             (
-                df2[row["mesh_name"]][row["face_id"]]["mannings_n"][0] /
-                df1[row["mesh_name"]][row["face_id"]]["mannings_n"][0]
+                d2[row["mesh_name"]][row["face_id"]]["mannings_n"][0] /
+                d1[row["mesh_name"]][row["face_id"]]["mannings_n"][0]
             ) - 1,
             2
         ) * 100,
