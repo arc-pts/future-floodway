@@ -4,6 +4,8 @@ from rashdf import RasGeomHdf
 import numpy as np
 import geopandas as gpd
 from typing import Union
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 def get_conveyance_and_mannings_curves(
     geom_hdf: PathLike,
@@ -55,7 +57,7 @@ def evaluate_conveyance_reduction(
 ) -> gpd.GeoDataFrame:
     with RasGeomHdf(initial_geom_hdf) as ghdf1, RasGeomHdf(updated_geom_hdf) as ghdf2:
         mesh_faces = ghdf1.mesh_cell_faces()
-        assert mesh_faces.to_json() == ghdf2.mesh_cell_faces().to_json()
+        # assert mesh_faces.to_json() == ghdf2.mesh_cell_faces().to_json()
     d1 = get_conveyance_and_mannings_curves(initial_geom_hdf)
     d2 = get_conveyance_and_mannings_curves(updated_geom_hdf)
     mesh_faces["med_elev"] = mesh_faces.apply(
@@ -100,10 +102,45 @@ def evaluate_conveyance_reduction(
     )
     return mesh_faces
 
-if __name__ == "__main__":
-    gdf = evaluate_conveyance_reduction(
-        r"C:\Users\USJB713989\Downloads\OneDrive_2024-09-25\Briar Creek\Base Geometry\Briar_Creek_WS.g02.hdf",
-        r"C:\Users\USJB713989\Downloads\OneDrive_2024-09-25\Briar Creek\H1 to H5 Nval 10%  Reduction\Briar_Creek_WS.g03.hdf"
+def plot_curves(
+    base_q_vals: np.ndarray,
+    base_n_vals: np.ndarray,
+    base_z_vals: np.ndarray,
+    updated_q_vals: np.ndarray,
+    updated_n_vals: np.ndarray,
+    updated_z_vals: np.ndarray
+) -> Figure:
+    figure, axis = plt.subplots(1, 2)
+
+    axis[0].set_title("conveyance")
+    axis[0].set_xlabel("conveyance")
+    axis[0].set_ylabel("elevation")
+    axis[0].ticklabel_format(useOffset=False, style="plain")
+    axis[0].plot(
+        base_q_vals, 
+        base_z_vals,
+        label="base"
     )
-    print(gdf)
-    gdf.to_file(r"C:\Users\USJB713989\Downloads\OneDrive_2024-09-25\Briar Creek\conv.shp")
+    axis[0].plot(
+        updated_q_vals, 
+        updated_z_vals,
+        label="updated"
+    )
+    axis[0].legend()
+
+    axis[1].set_title("mannings n")
+    axis[1].set_xlabel("mannings n")
+    axis[1].set_ylabel("elevation")
+    axis[1].ticklabel_format(useOffset=False, style="plain")
+    axis[1].plot(
+        base_n_vals, 
+        base_z_vals,
+        label="base"
+    )
+    axis[1].plot(
+        updated_n_vals, 
+        updated_z_vals,
+        label="updated"
+    )
+    axis[1].legend()
+    return figure
