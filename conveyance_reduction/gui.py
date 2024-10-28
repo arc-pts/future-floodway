@@ -23,7 +23,7 @@ class Gui(Tk):
 
         # root config
         self.title("Generate Breaklines")
-        self.geometry("600x400")
+        self.geometry("600x280")
         self.attributes('-alpha',0.90)
         self.configure(background='gray30')
 
@@ -53,17 +53,17 @@ class Gui(Tk):
         self.hdf2_path_txt.pack()
         Button(self, text="Browse", command=self.browse_hdf2_path).pack(pady=5)
 
-        # close button
-        close_button = Button(self, text="Close", command=self.destroy)
-        close_button.pack(side="bottom", fill="both", padx=5, pady=5)
-
         # execute button
-        plot_button = Button(
+        self.plot_button = Button(
             self, 
             text="Plot Curves", 
             command=self.initiate_plot
         )
-        plot_button.pack(side="bottom", fill="both", padx=5, pady=5)
+        self.plot_button.pack(fill="both", padx=5, pady=5)
+
+        # close button
+        self.close_button = Button(self, text="Close", command=self.destroy)
+        self.close_button.pack(side= "bottom", fill="both", padx=5, pady=5)
 
         # main loop
         self.mainloop()
@@ -120,6 +120,8 @@ class Gui(Tk):
     def initiate_plot(self) -> None:
         try:
 
+            self.geometry("1200x800")
+
             # mesh name
             Label(
                 self, 
@@ -153,8 +155,8 @@ class Gui(Tk):
 
     def update_plot(self, *args, **kwargs) -> None:
         try:
+            self.plot_button.pack_forget()
             self.cw.pack_forget()
-            # self.tbw.pack_forget()
         except:
             pass
         mesh_name=self.mesh_name_txt.get("1.0","end").strip().strip('"')
@@ -171,11 +173,7 @@ class Gui(Tk):
         canvas = FigureCanvasTkAgg(fig, self)   
         canvas.draw() 
         self.cw = canvas.get_tk_widget()
-        self.cw.pack()     
-        # toolbar = NavigationToolbar2Tk(canvas, self) 
-        # toolbar.update()    
-        # self.tbw = canvas.get_tk_widget()
-        # self.tbw.pack() 
+        self.cw.pack(padx=5, pady=5)     
 
         self.mesh_name_txt.edit_modified(False)
         self.face_id_txt.edit_modified(False)

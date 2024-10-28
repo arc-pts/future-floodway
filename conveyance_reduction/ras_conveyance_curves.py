@@ -111,6 +111,7 @@ def plot_curves(
     updated_z_vals: np.ndarray
 ) -> Figure:
     figure, axis = plt.subplots(1, 2)
+    figure.set_size_inches(12, 8)
 
     axis[0].set_title("conveyance")
     axis[0].set_xlabel("conveyance")
