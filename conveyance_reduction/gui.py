@@ -1,14 +1,13 @@
-from tkinter import Tk, Button, Label, Text
-from tkinter.filedialog import askopenfilename, askdirectory
-from matplotlib.backends.backend_tkagg import (
-    FigureCanvasTkAgg,  
-    NavigationToolbar2Tk
-)
+from tkinter import Tk, Button, Label, Text, ttk
+from tkinter.filedialog import askopenfilename
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import ctypes
 from os import PathLike
 from conveyance_reduction.ras_conveyance_curves import (
     get_conveyance_and_mannings_curves,
-    plot_curves
+    plot_curves,
+    get_mesh_names,
+    get_face_ids
 )
 
 class DesktopPathError(Exception):
@@ -18,12 +17,14 @@ class Gui(Tk):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)   
 
-        # ras curve data
-        self._ras_curves = None     
+        self._ras_curves = None  
+        self._mesh_names = None  
+        self._face_ids = None   
 
         # root config
         self.title("Generate Breaklines")
-        self.geometry("600x280")
+        self.bind_all("<Button-1>", lambda event: event.widget.focus_set())
+        # self.geometry("600x280")
         self.attributes('-alpha',0.90)
         self.configure(background='gray30')
 
@@ -35,9 +36,9 @@ class Gui(Tk):
             fg="cornflower blue", 
             font=12
         ).pack()
-        self.hdf1_path_txt = Text(self, height=2, width=53, padx=5, pady=5)
+        self.hdf1_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
         self.hdf1_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\Base Geometry\Briar_Creek_WS.g02.hdf") # default path
-        self.hdf1_path_txt.pack()
+        self.hdf1_path_txt.pack(padx=5, pady=5)
         Button(self, text="Browse", command=self.browse_hdf1_path).pack(pady=5)
 
         # hdf2 path
@@ -48,9 +49,9 @@ class Gui(Tk):
             fg="cornflower blue", 
             font=12
         ).pack()
-        self.hdf2_path_txt = Text(self, height=2, width=53, padx=5, pady=5)
+        self.hdf2_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
         self.hdf2_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\H1 to H5 Nval 10% Increase\Briar_Creek_WS.g03.hdf") # default path
-        self.hdf2_path_txt.pack()
+        self.hdf2_path_txt.pack(padx=5, pady=5)
         Button(self, text="Browse", command=self.browse_hdf2_path).pack(pady=5)
 
         # execute button
@@ -81,6 +82,31 @@ class Gui(Tk):
             }
         return self._ras_curves
 
+    @property
+    def mesh_names(self) -> None:
+        if self._mesh_names is None:
+            if self._ras_curves is not None:
+                self._mesh_names = list(self.ras_curves[0].keys())
+            else:
+                self._mesh_names = get_mesh_names(
+                    self.hdf1_path_txt.get("1.0","end").strip().strip('"')
+                )
+        return self._mesh_names
+
+    @property
+    def face_ids(self) -> None:
+        if self._face_ids is None:
+            if self._ras_curves is not None:
+                self._face_ids = list(self.ras_curves[0][
+                    self.mesh_name_txt.get("1.0","end").strip().strip('"')
+                ].keys())
+            else:
+                self._face_ids = get_face_ids(
+                    self.hdf1_path_txt.get("1.0","end").strip().strip('"'),
+                    self.mesh_name_txt.get("1.0","end").strip().strip('"')
+                )
+        return self._face_ids
+
     def get_hdf_file_path(self) -> PathLike:
         Tk().withdraw() # keep the root window from appearing
         return askopenfilename(
@@ -89,25 +115,10 @@ class Gui(Tk):
             filetypes = [("HDF files","*.hdf")]
         )
 
-    def get_output_dir_path(self) -> PathLike:
-        Tk().withdraw() # keep the root window from appearing
-        return askdirectory(
-            initialdir = "/",
-            title = "Select output directory."
-        )
-
-    def show_complete(self) -> None:
-        MessageBox = ctypes.windll.user32.MessageBoxW
-        MessageBox(None, 'Complete!', ' ', 0x40000)
-
     def show_error(self, error: str) -> None:
         MessageBox = ctypes.windll.user32.MessageBoxW
         MessageBox(None, error, 'ERROR', 0x40000)
         self.destroy()
-
-    def browse_out_dir(self):
-        self.out_dir.delete("1.0","end")
-        self.out_dir.insert("1.0", self.get_output_dir_path())
 
     def browse_hdf1_path(self):
         self.hdf1_path_txt.delete("1.0","end")
@@ -117,10 +128,21 @@ class Gui(Tk):
         self.hdf2_path_txt.delete("1.0","end")
         self.hdf2_path_txt.insert("1.0", self.get_dem_file_path())
 
+    def check_mesh_name_combo(self, event):
+        value = event.widget.get()
+        if value == '':
+            self.combo_box['values'] = self.face_ids
+        else:
+            data = []
+            for item in self.face_ids:
+                if value.lower() in item.lower():
+                    data.append(item)
+            self.combo_box['values'] = data
+
     def initiate_plot(self) -> None:
         try:
 
-            self.geometry("1200x800")
+            # self.geometry("1200x800")
 
             # mesh name
             Label(
@@ -133,7 +155,12 @@ class Gui(Tk):
             self.mesh_name_txt = Text(self, height=2, width=53, padx=5, pady=5)
             self.mesh_name_txt.insert("1.0", list(self.ras_curves[0].keys())[0])
             self.mesh_name_txt.pack()
-            self.mesh_name_txt.bind("<<Modified>>", self.update_plot)
+            self.mesh_name_txt.bind("<FocusOut>", self.update_plot)
+
+            # self.combo_box = ttk.Combobox(self)
+            # self.combo_box['values'] = self.mesh_names
+            # self.combo_box.bind('<KeyRelease>', self.check_combo_list)
+            # self.combo_box.pack()
 
             # face id
             Label(
@@ -146,7 +173,7 @@ class Gui(Tk):
             self.face_id_txt = Text(self, height=2, width=53, padx=5, pady=5)
             self.face_id_txt.insert("1.0", "0")
             self.face_id_txt.pack()
-            self.face_id_txt.bind("<<Modified>>", self.update_plot)
+            self.face_id_txt.bind("<FocusOut>", self.update_plot)
 
             self.update_plot()
 

@@ -111,7 +111,7 @@ def plot_curves(
     updated_z_vals: np.ndarray
 ) -> Figure:
     figure, axis = plt.subplots(1, 2)
-    figure.set_size_inches(12, 8)
+    figure.set_size_inches(14, 4)
 
     axis[0].set_title("conveyance")
     axis[0].set_xlabel("conveyance")
@@ -145,3 +145,11 @@ def plot_curves(
     )
     axis[1].legend()
     return figure
+
+def get_mesh_names(geom_hdf: PathLike) -> list[str]:
+    with RasGeomHdf(geom_hdf) as ghdf:
+        return ghdf.mesh_area_names()
+
+def get_face_ids(geom_hdf: PathLike, mesh_name: str) -> list[int]:
+    with RasGeomHdf(geom_hdf) as ghdf:
+        return list(range(ghdf[rf"/Geometry/2D Flow Areas/{mesh_name}/Faces Low Elevation Centroid"].size))
