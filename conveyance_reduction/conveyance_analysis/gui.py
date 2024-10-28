@@ -4,7 +4,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import ctypes
 from os import PathLike
 from sys import exit
-from conveyance_reduction.ras_conveyance_curves import (
+from conveyance_analysis.ras_conveyance_curves import (
     get_conveyance_and_mannings_curves,
     plot_curves,
     get_mesh_names,
@@ -39,7 +39,7 @@ class Gui(Tk):
         )
         self.hdf1_label.pack()
         self.hdf1_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
-        self.hdf1_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\Base Geometry\Briar_Creek_WS.g02.hdf") # default path
+        # self.hdf1_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\Base Geometry\Briar_Creek_WS.g02.hdf") # default path
         self.hdf1_path_txt.pack(padx=5, pady=5)
         self.hdf1_browse = Button(self, text="Browse", command=self.browse_hdf1_path)
         self.hdf1_browse.pack(pady=5)
@@ -54,7 +54,7 @@ class Gui(Tk):
         )
         self.hdf2_label.pack()
         self.hdf2_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
-        self.hdf2_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\H1 to H5 Nval 10% Increase\Briar_Creek_WS.g03.hdf") # default path
+        # self.hdf2_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\H1 to H5 Nval 10% Increase\Briar_Creek_WS.g03.hdf") # default path
         self.hdf2_path_txt.pack(padx=5, pady=5)
         self.hdf2_browse = Button(self, text="Browse", command=self.browse_hdf2_path)
         self.hdf2_browse.pack(pady=5)
