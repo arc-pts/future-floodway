@@ -110,6 +110,10 @@ def plot_curves(
     updated_n_vals: np.ndarray,
     updated_z_vals: np.ndarray
 ) -> Figure:
+    try:
+        plt.close()
+    except:
+        pass
     figure, axis = plt.subplots(1, 2)
     figure.set_size_inches(14, 4)
 

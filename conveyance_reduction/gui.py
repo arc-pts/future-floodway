@@ -1,8 +1,9 @@
-from tkinter import Tk, Button, Label, Text, ttk
+from tkinter import Tk, Button, Label, Text, ttk, StringVar
 from tkinter.filedialog import askopenfilename
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import ctypes
 from os import PathLike
+from sys import exit
 from conveyance_reduction.ras_conveyance_curves import (
     get_conveyance_and_mannings_curves,
     plot_curves,
@@ -67,7 +68,7 @@ class Gui(Tk):
         self.plot_button.pack(fill="both", padx=5, pady=5)
 
         # close button
-        self.close_button = Button(self, text="Close", command=self.destroy)
+        self.close_button = Button(self, text="Close", command=exit)
         self.close_button.pack(side= "bottom", fill="both", padx=5, pady=5)
 
         # main loop
@@ -102,12 +103,12 @@ class Gui(Tk):
         if self._face_ids is None:
             if self._ras_curves is not None:
                 self._face_ids = list(self.ras_curves[0][
-                    self.mesh_name_txt.get("1.0","end").strip().strip('"')
+                    self.mesh_name_str.get().strip().strip('"')
                 ].keys())
             else:
                 self._face_ids = get_face_ids(
                     self.hdf1_path_txt.get("1.0","end").strip().strip('"'),
-                    self.mesh_name_txt.get("1.0","end").strip().strip('"')
+                    self.mesh_name_str.get().strip().strip('"')
                 )
         return self._face_ids
 
@@ -122,7 +123,7 @@ class Gui(Tk):
     def show_error(self, error: str) -> None:
         MessageBox = ctypes.windll.user32.MessageBoxW
         MessageBox(None, error, 'ERROR', 0x40000)
-        self.destroy()
+        exit()
 
     def browse_hdf1_path(self):
         self.hdf1_path_txt.delete("1.0","end")
@@ -132,16 +133,9 @@ class Gui(Tk):
         self.hdf2_path_txt.delete("1.0","end")
         self.hdf2_path_txt.insert("1.0", self.get_dem_file_path())
 
-    def check_mesh_name_combo(self, event):
-        value = event.widget.get()
-        if value == '':
-            self.combo_box['values'] = self.face_ids
-        else:
-            data = []
-            for item in self.face_ids:
-                if value.lower() in item.lower():
-                    data.append(item)
-            self.combo_box['values'] = data
+    def mesh_name_changed(self, *args, **kwargs):
+        self._face_ids = None
+        self.update_plot()
 
     def initiate_plot(self) -> None:
         try:
@@ -156,15 +150,12 @@ class Gui(Tk):
                 fg="cornflower blue", 
                 font=12
             ).pack()
-            self.mesh_name_txt = Text(self, height=2, width=53, padx=5, pady=5)
-            self.mesh_name_txt.insert("1.0", list(self.ras_curves[0].keys())[0])
-            self.mesh_name_txt.pack()
-            self.mesh_name_txt.bind("<FocusOut>", self.update_plot)
-
-            # self.combo_box = ttk.Combobox(self)
-            # self.combo_box['values'] = self.mesh_names
-            # self.combo_box.bind('<KeyRelease>', self.check_mesh_name_combo)
-            # self.combo_box.pack()
+            self.mesh_name_str = StringVar()
+            self.mesh_name_cb = ttk.Combobox(self, textvariable=self.mesh_name_str)
+            self.mesh_name_cb['values'] = self.mesh_names
+            self.mesh_name_cb.current(0)
+            self.mesh_name_str.trace_add("write", self.mesh_name_changed)
+            self.mesh_name_cb.pack()
 
             # face id
             Label(
@@ -174,7 +165,7 @@ class Gui(Tk):
                 fg="cornflower blue", 
                 font=12
             ).pack()
-            self.face_id_txt = Text(self, height=2, width=53, padx=5, pady=5)
+            self.face_id_txt = Text(self, height=1, width=12, padx=5, pady=5)
             self.face_id_txt.insert("1.0", "0")
             self.face_id_txt.pack()
             self.face_id_txt.bind("<FocusOut>", self.update_plot)
@@ -196,7 +187,7 @@ class Gui(Tk):
             self.cw.pack_forget()
         except:
             pass
-        mesh_name=self.mesh_name_txt.get("1.0","end").strip().strip('"')
+        mesh_name=self.mesh_name_str.get().strip().strip('"')
         face_id=int(self.face_id_txt.get("1.0","end").strip().strip('"'))
         fig = plot_curves(
             self.ras_curves[0][mesh_name][face_id]["conveyance"],
@@ -211,6 +202,3 @@ class Gui(Tk):
         canvas.draw() 
         self.cw = canvas.get_tk_widget()
         self.cw.pack(padx=5, pady=5)     
-
-        self.mesh_name_txt.edit_modified(False)
-        self.face_id_txt.edit_modified(False)
