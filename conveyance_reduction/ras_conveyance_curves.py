@@ -120,12 +120,16 @@ def plot_curves(
     axis[0].plot(
         base_q_vals, 
         base_z_vals,
-        label="base"
+        label="base",
+        color="cornflowerblue",
+        linewidth=4
     )
     axis[0].plot(
         updated_q_vals, 
         updated_z_vals,
-        label="updated"
+        label="updated",
+        color="mediumseagreen",
+        linewidth=4
     )
     axis[0].legend()
 
@@ -136,12 +140,16 @@ def plot_curves(
     axis[1].plot(
         base_n_vals, 
         base_z_vals,
-        label="base"
+        label="base",
+        color="cornflowerblue",
+        linewidth=4
     )
     axis[1].plot(
         updated_n_vals, 
         updated_z_vals,
-        label="updated"
+        label="updated",
+        color="mediumseagreen",
+        linewidth=4
     )
     axis[1].legend()
     return figure

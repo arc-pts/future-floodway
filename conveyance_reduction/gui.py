@@ -29,30 +29,34 @@ class Gui(Tk):
         self.configure(background='gray30')
 
         # hdf1 path
-        Label(
+        self.hdf1_label = Label(
             self, 
             text="Base Model Plan HDF File:", 
             bg='gray30', 
             fg="cornflower blue", 
             font=12
-        ).pack()
+        )
+        self.hdf1_label.pack()
         self.hdf1_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
         self.hdf1_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\Base Geometry\Briar_Creek_WS.g02.hdf") # default path
         self.hdf1_path_txt.pack(padx=5, pady=5)
-        Button(self, text="Browse", command=self.browse_hdf1_path).pack(pady=5)
+        self.hdf1_browse = Button(self, text="Browse", command=self.browse_hdf1_path)
+        self.hdf1_browse.pack(pady=5)
 
         # hdf2 path
-        Label(
+        self.hdf2_label = Label(
             self, 
             text="Updated Model Plan HDF File:", 
             bg='gray30', 
             fg="cornflower blue", 
             font=12
-        ).pack()
+        )
+        self.hdf2_label.pack()
         self.hdf2_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
         self.hdf2_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\H1 to H5 Nval 10% Increase\Briar_Creek_WS.g03.hdf") # default path
         self.hdf2_path_txt.pack(padx=5, pady=5)
-        Button(self, text="Browse", command=self.browse_hdf2_path).pack(pady=5)
+        self.hdf2_browse = Button(self, text="Browse", command=self.browse_hdf2_path)
+        self.hdf2_browse.pack(pady=5)
 
         # execute button
         self.plot_button = Button(
@@ -159,7 +163,7 @@ class Gui(Tk):
 
             # self.combo_box = ttk.Combobox(self)
             # self.combo_box['values'] = self.mesh_names
-            # self.combo_box.bind('<KeyRelease>', self.check_combo_list)
+            # self.combo_box.bind('<KeyRelease>', self.check_mesh_name_combo)
             # self.combo_box.pack()
 
             # face id
@@ -182,6 +186,12 @@ class Gui(Tk):
 
     def update_plot(self, *args, **kwargs) -> None:
         try:
+            self.hdf1_label.pack_forget()
+            self.hdf1_path_txt.pack_forget()
+            self.hdf1_browse.pack_forget()
+            self.hdf2_label.pack_forget()
+            self.hdf2_path_txt.pack_forget()
+            self.hdf2_browse.pack_forget()
             self.plot_button.pack_forget()
             self.cw.pack_forget()
         except:
