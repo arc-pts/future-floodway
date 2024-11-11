@@ -127,11 +127,11 @@ class Gui(Tk):
 
     def browse_hdf1_path(self):
         self.hdf1_path_txt.delete("1.0","end")
-        self.hdf1_path_txt.insert("1.0", self.get_dem_file_path())
+        self.hdf1_path_txt.insert("1.0", self.get_hdf_file_path())
 
     def browse_hdf2_path(self):
         self.hdf2_path_txt.delete("1.0","end")
-        self.hdf2_path_txt.insert("1.0", self.get_dem_file_path())
+        self.hdf2_path_txt.insert("1.0", self.get_hdf_file_path())
 
     def mesh_name_changed(self, *args, **kwargs):
         self._face_ids = None
@@ -189,14 +189,17 @@ class Gui(Tk):
             pass
         mesh_name=self.mesh_name_str.get().strip().strip('"')
         face_id=int(self.face_id_txt.get("1.0","end").strip().strip('"'))
-        fig = plot_curves(
-            self.ras_curves[0][mesh_name][face_id]["conveyance"],
-            self.ras_curves[0][mesh_name][face_id]["mannings_n"],
-            self.ras_curves[0][mesh_name][face_id]["elevation"],
-            self.ras_curves[1][mesh_name][face_id]["conveyance"],
-            self.ras_curves[1][mesh_name][face_id]["mannings_n"],
-            self.ras_curves[1][mesh_name][face_id]["elevation"]
-        )
+        try:
+            fig = plot_curves(
+                self.ras_curves[0][mesh_name][face_id]["conveyance"],
+                self.ras_curves[0][mesh_name][face_id]["mannings_n"],
+                self.ras_curves[0][mesh_name][face_id]["elevation"],
+                self.ras_curves[1][mesh_name][face_id]["conveyance"],
+                self.ras_curves[1][mesh_name][face_id]["mannings_n"],
+                self.ras_curves[1][mesh_name][face_id]["elevation"]
+            )
+        except KeyError as ke:
+            fig = plot_curves(error_string=f"There is no cell face with ID = {ke}.")
 
         canvas = FigureCanvasTkAgg(fig, self)   
         canvas.draw() 

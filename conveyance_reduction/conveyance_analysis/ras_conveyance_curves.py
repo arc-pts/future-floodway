@@ -103,12 +103,13 @@ def evaluate_conveyance_reduction(
     return mesh_faces
 
 def plot_curves(
-    base_q_vals: np.ndarray,
-    base_n_vals: np.ndarray,
-    base_z_vals: np.ndarray,
-    updated_q_vals: np.ndarray,
-    updated_n_vals: np.ndarray,
-    updated_z_vals: np.ndarray
+    base_q_vals: np.ndarray = None,
+    base_n_vals: np.ndarray = None,
+    base_z_vals: np.ndarray = None,
+    updated_q_vals: np.ndarray = None,
+    updated_n_vals: np.ndarray = None,
+    updated_z_vals: np.ndarray = None,
+    error_string: str = None
 ) -> Figure:
     try:
         plt.close()
@@ -121,41 +122,47 @@ def plot_curves(
     axis[0].set_xlabel("conveyance")
     axis[0].set_ylabel("elevation")
     axis[0].ticklabel_format(useOffset=False, style="plain")
-    axis[0].plot(
-        base_q_vals, 
-        base_z_vals,
-        label="base",
-        color="cornflowerblue",
-        linewidth=4
-    )
-    axis[0].plot(
-        updated_q_vals, 
-        updated_z_vals,
-        label="updated",
-        color="mediumseagreen",
-        linewidth=4
-    )
-    axis[0].legend()
+    if error_string is not None:
+        axis[0].text(0.1, 0.5, error_string, color="red")
+    else:
+        axis[0].plot(
+            base_q_vals, 
+            base_z_vals,
+            label="base",
+            color="cornflowerblue",
+            linewidth=4
+        )
+        axis[0].plot(
+            updated_q_vals, 
+            updated_z_vals,
+            label="updated",
+            color="mediumseagreen",
+            linewidth=4
+        )
+        axis[0].legend()
 
     axis[1].set_title("mannings n")
     axis[1].set_xlabel("mannings n")
     axis[1].set_ylabel("elevation")
     axis[1].ticklabel_format(useOffset=False, style="plain")
-    axis[1].plot(
-        base_n_vals, 
-        base_z_vals,
-        label="base",
-        color="cornflowerblue",
-        linewidth=4
-    )
-    axis[1].plot(
-        updated_n_vals, 
-        updated_z_vals,
-        label="updated",
-        color="mediumseagreen",
-        linewidth=4
-    )
-    axis[1].legend()
+    if error_string is not None:
+        axis[1].text(0.1, 0.5, error_string, color="red")
+    else:
+        axis[1].plot(
+            base_n_vals, 
+            base_z_vals,
+            label="base",
+            color="cornflowerblue",
+            linewidth=4
+        )
+        axis[1].plot(
+            updated_n_vals, 
+            updated_z_vals,
+            label="updated",
+            color="mediumseagreen",
+            linewidth=4
+        )
+        axis[1].legend()
     return figure
 
 def get_mesh_names(geom_hdf: PathLike) -> list[str]:
