@@ -1,9 +1,9 @@
 from os import PathLike
 import pandas as pd
-from rashdf import RasGeomHdf
+from rashdf import RasGeomHdf, RasPlanHdf
 import numpy as np
 import geopandas as gpd
-from typing import Union
+from typing import Union, Literal
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
@@ -172,3 +172,29 @@ def get_mesh_names(geom_hdf: PathLike) -> list[str]:
 def get_face_ids(geom_hdf: PathLike, mesh_name: str) -> list[int]:
     with RasGeomHdf(geom_hdf) as ghdf:
         return list(range(ghdf[rf"/Geometry/2D Flow Areas/{mesh_name}/Faces Low Elevation Centroid"].size))
+    
+def get_face_peak_surcharges(
+    plan_hdf1: PathLike,
+    plan_hdf2: PathLike,
+    variable: Literal["v", "z", "q"]
+) -> dict:
+    """
+    {
+        mesh area name: {
+            face ID: peak surcharge
+        }
+    }
+    """
+    base_path = "/Results/Unsteady/Output/Output Blocks/Base Output/Unsteady Time Series/2D Flow Areas/"
+    var_name = {
+        "v": "/Face Velocity",
+        "z": "/Face Water Surface",
+        "q": "/Face Flow" 
+    }
+    surcharges = {}
+    with RasPlanHdf(plan_hdf1) as hdf1, RasPlanHdf(plan_hdf2) as hdf2:
+        for mesh in hdf1.mesh_area_names():
+            var_path = base_path + mesh + var_name[variable]
+            surcharges[mesh] = dict(enumerate(np.max(np.absolute(hdf2[var_path][()]), axis=0)
+            - np.max(np.absolute(hdf1[var_path][()]), axis=0)))
+    return surcharges

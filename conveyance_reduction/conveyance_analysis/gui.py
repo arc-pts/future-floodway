@@ -8,7 +8,8 @@ from conveyance_analysis.ras_conveyance_curves import (
     get_conveyance_and_mannings_curves,
     plot_curves,
     get_mesh_names,
-    get_face_ids
+    get_face_ids,
+    get_face_peak_surcharges
 )
 
 class DesktopPathError(Exception):
@@ -20,7 +21,10 @@ class Gui(Tk):
 
         self._ras_curves = None  
         self._mesh_names = None  
-        self._face_ids = None   
+        self._face_ids = None
+        self._face_vel_surcharges = None
+        self._face_wse_surcharges = None   
+        self._face_flow_surcharges = None   
 
         # root config
         self.title("Generate Breaklines")
@@ -39,7 +43,7 @@ class Gui(Tk):
         )
         self.hdf1_label.pack()
         self.hdf1_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
-        # self.hdf1_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\Base Geometry\Briar_Creek_WS.g02.hdf") # default path
+        self.hdf1_path_txt.insert("1.0", r"C:\Users\USJB713989\Downloads\fhz_tool_test\Briar_Creek_WS.p01.hdf") # default path
         self.hdf1_path_txt.pack(padx=5, pady=5)
         self.hdf1_browse = Button(self, text="Browse", command=self.browse_hdf1_path)
         self.hdf1_browse.pack(pady=5)
@@ -54,7 +58,7 @@ class Gui(Tk):
         )
         self.hdf2_label.pack()
         self.hdf2_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
-        # self.hdf2_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Flood Hazard Zones\Briar Creek\H1 to H5 Nval 10% Increase\Briar_Creek_WS.g03.hdf") # default path
+        self.hdf2_path_txt.insert("1.0", r"C:\Users\USJB713989\Downloads\fhz_tool_test\Briar_Creek_WS.p02.hdf") # default path
         self.hdf2_path_txt.pack(padx=5, pady=5)
         self.hdf2_browse = Button(self, text="Browse", command=self.browse_hdf2_path)
         self.hdf2_browse.pack(pady=5)
@@ -111,6 +115,36 @@ class Gui(Tk):
                     self.mesh_name_str.get().strip().strip('"')
                 )
         return self._face_ids
+    
+    @property
+    def face_vel_surcharges(self) -> None:
+        if self._face_vel_surcharges is None:
+            self._face_vel_surcharges = get_face_peak_surcharges(
+                self.hdf1_path_txt.get("1.0","end").strip().strip('"'),
+                self.hdf2_path_txt.get("1.0","end").strip().strip('"'),
+                "v"
+            )
+        return self._face_vel_surcharges
+
+    @property
+    def face_wse_surcharges(self) -> None:
+        if self._face_wse_surcharges is None:
+            self._face_wse_surcharges = get_face_peak_surcharges(
+                self.hdf1_path_txt.get("1.0","end").strip().strip('"'),
+                self.hdf2_path_txt.get("1.0","end").strip().strip('"'),
+                "z"
+            )
+        return self._face_wse_surcharges
+
+    @property
+    def face_flow_surcharges(self) -> None:
+        if self._face_flow_surcharges is None:
+            self._face_flow_surcharges = get_face_peak_surcharges(
+                self.hdf1_path_txt.get("1.0","end").strip().strip('"'),
+                self.hdf2_path_txt.get("1.0","end").strip().strip('"'),
+                "q"
+            )
+        return self._face_flow_surcharges
 
     def get_hdf_file_path(self) -> PathLike:
         Tk().withdraw() # keep the root window from appearing
@@ -178,18 +212,64 @@ class Gui(Tk):
     def update_plot(self, *args, **kwargs) -> None:
         try:
             self.hdf1_label.pack_forget()
+        except:
+            pass
+        try:
             self.hdf1_path_txt.pack_forget()
+        except:
+            pass
+        try:
             self.hdf1_browse.pack_forget()
+        except:
+            pass
+        try:
             self.hdf2_label.pack_forget()
+        except:
+            pass
+        try:
             self.hdf2_path_txt.pack_forget()
+        except:
+            pass
+        try:
             self.hdf2_browse.pack_forget()
+        except:
+            pass
+        try:
             self.plot_button.pack_forget()
+        except:
+            pass
+        try:
             self.cw.pack_forget()
         except:
             pass
-        mesh_name=self.mesh_name_str.get().strip().strip('"')
-        face_id=int(self.face_id_txt.get("1.0","end").strip().strip('"'))
         try:
+            self.vel_surcharge_label.pack_forget()
+        except:
+            pass
+        try:
+            self.vel_surcharge.pack_forget()
+        except:
+            pass
+        try:
+            self.wse_surcharge_label.pack_forget()
+        except:
+            pass
+        try:
+            self.wse_surcharge.pack_forget()
+        except:
+            pass
+        try:
+            self.flow_surcharge_label.pack_forget()
+        except:
+            pass
+        try:
+            self.flow_surcharge.pack_forget()
+        except:
+            pass
+
+        mesh_name=self.mesh_name_str.get().strip().strip('"')
+        try:
+            face_id=int(self.face_id_txt.get("1.0","end").strip().strip('"'))
             fig = plot_curves(
                 self.ras_curves[0][mesh_name][face_id]["conveyance"],
                 self.ras_curves[0][mesh_name][face_id]["mannings_n"],
@@ -198,10 +278,64 @@ class Gui(Tk):
                 self.ras_curves[1][mesh_name][face_id]["mannings_n"],
                 self.ras_curves[1][mesh_name][face_id]["elevation"]
             )
-        except KeyError as ke:
-            fig = plot_curves(error_string=f"There is no cell face with ID = {ke}.")
+        except KeyError:
+            fig = plot_curves(error_string=f"There is no cell face with ID = {face_id}.")
+        except ValueError:
+            face_id = self.face_id_txt.get("1.0","end").strip().strip('"')
+            fig = plot_curves(error_string=f"Face ID = {face_id} is invalid because it is not an integer.")
 
         canvas = FigureCanvasTkAgg(fig, self)   
         canvas.draw() 
         self.cw = canvas.get_tk_widget()
-        self.cw.pack(padx=5, pady=5)     
+        self.cw.pack(padx=5, pady=5)
+
+        # vel surcharge
+        self.vel_surcharge_label = Label(
+            self, 
+            text="Velocity Surcharge", 
+            bg='gray30', 
+            fg="cornflower blue", 
+            font=12
+        )
+        self.vel_surcharge_label.pack()
+        self.vel_surcharge = Text(self, height=1, width=30, padx=5, pady=5)
+        try:
+            self.vel_surcharge.insert("1.0", self.face_vel_surcharges[mesh_name][face_id])
+        except KeyError:
+            self.vel_surcharge.insert("1.0", "Face velocities not found.")
+        self.vel_surcharge.config(state="disabled")
+        self.vel_surcharge.pack()
+
+        # wse surcharge
+        self.wse_surcharge_label = Label(
+            self, 
+            text="Water Surface Surcharge", 
+            bg='gray30', 
+            fg="cornflower blue", 
+            font=12
+        )
+        self.wse_surcharge_label.pack()
+        self.wse_surcharge = Text(self, height=1, width=30, padx=5, pady=5)
+        try:
+            self.wse_surcharge.insert("1.0", self.face_wse_surcharges[mesh_name][face_id])
+        except KeyError:
+            self.wse_surcharge.insert("1.0", "Face water surfaces not found.")
+        self.wse_surcharge.config(state="disabled")
+        self.wse_surcharge.pack()
+
+        # flow surcharge
+        self.flow_surcharge_label = Label(
+            self, 
+            text="Flow Surcharge", 
+            bg='gray30', 
+            fg="cornflower blue", 
+            font=12
+        )
+        self.flow_surcharge_label.pack()
+        self.flow_surcharge = Text(self, height=1, width=30, padx=5, pady=5)
+        try:
+            self.flow_surcharge.insert("1.0", self.face_flow_surcharges[mesh_name][face_id])
+        except KeyError:
+            self.flow_surcharge.insert("1.0", "Face flows not found.")
+        self.flow_surcharge.config(state="disabled")
+        self.flow_surcharge.pack()
