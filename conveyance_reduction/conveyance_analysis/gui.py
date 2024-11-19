@@ -27,7 +27,7 @@ class Gui(Tk):
         self._face_flow_surcharges = None   
 
         # root config
-        self.title("Generate Breaklines")
+        self.title("RAS Conveyance Reduction Analysis")
         self.bind_all("<Button-1>", lambda event: event.widget.focus_set())
         # self.geometry("600x280")
         self.attributes('-alpha',0.90)
@@ -43,7 +43,7 @@ class Gui(Tk):
         )
         self.hdf1_label.pack()
         self.hdf1_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
-        self.hdf1_path_txt.insert("1.0", r"C:\Users\USJB713989\Downloads\fhz_tool_test\Briar_Creek_WS.p01.hdf") # default path
+        # self.hdf1_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Briar_Creek_Watershed\Pland_HDF_Output_Files\NRCS_OV-B_0.2_pct_P03\Briar_Creek_WS.p03.hdf") # default path
         self.hdf1_path_txt.pack(padx=5, pady=5)
         self.hdf1_browse = Button(self, text="Browse", command=self.browse_hdf1_path)
         self.hdf1_browse.pack(pady=5)
@@ -58,7 +58,7 @@ class Gui(Tk):
         )
         self.hdf2_label.pack()
         self.hdf2_path_txt = Text(self, height=2, width=100, padx=5, pady=5, wrap="word")
-        self.hdf2_path_txt.insert("1.0", r"C:\Users\USJB713989\Downloads\fhz_tool_test\Briar_Creek_WS.p02.hdf") # default path
+        # self.hdf2_path_txt.insert("1.0", r"C:\Users\USJB713989\Michael Baker International\PTS3 Innovations - FW HZ SO3 - FW HZ SO3\Data\Briar_Creek_Watershed\Pland_HDF_Output_Files\NRCS_OV-B_0.2_pct (30% Nval Incr)_P13\Briar_Creek_WS.p13.hdf") # default path
         self.hdf2_path_txt.pack(padx=5, pady=5)
         self.hdf2_browse = Button(self, text="Browse", command=self.browse_hdf2_path)
         self.hdf2_browse.pack(pady=5)
@@ -292,7 +292,7 @@ class Gui(Tk):
         # vel surcharge
         self.vel_surcharge_label = Label(
             self, 
-            text="Velocity Surcharge", 
+            text="Peak Velocity Surcharge (f/s)", 
             bg='gray30', 
             fg="cornflower blue", 
             font=12
@@ -309,7 +309,7 @@ class Gui(Tk):
         # wse surcharge
         self.wse_surcharge_label = Label(
             self, 
-            text="Water Surface Surcharge", 
+            text="Peak Water Surface Surcharge (ft)", 
             bg='gray30', 
             fg="cornflower blue", 
             font=12
@@ -326,7 +326,7 @@ class Gui(Tk):
         # flow surcharge
         self.flow_surcharge_label = Label(
             self, 
-            text="Flow Surcharge", 
+            text="Peak Flow Surcharge (cfs)", 
             bg='gray30', 
             fg="cornflower blue", 
             font=12
